@@ -557,6 +557,35 @@ const tenantPolicy = policy<Actor, Subject>({
 
 ---
 
+### v0.5.0 (Planned) 📚
+
+**Status:** Early planning
+
+**Focus:** Documentation & Developer Experience
+
+**Planned Features:**
+
+#### Documentation Site
+- 📚 **VitePress Documentation Site** - Hosted on GitHub Pages
+  - Comprehensive guides and tutorials
+  - Interactive code examples
+  - API reference with search
+  - Dark/light mode support
+  - Mobile-responsive design
+  - URL: `https://toglelabs.github.io/typed-policy`
+
+#### Enhanced Examples
+- 📚 **Live React Demo** - Interactive policy playground
+- 📚 **More Framework Examples** - Next.js, Nuxt, SvelteKit
+- 📚 **Real-world Patterns** - Common authorization patterns cookbook
+
+#### Developer Tools
+- 📚 **VS Code Extension** - Syntax highlighting and snippets
+- 📚 **CLI Tool** - Policy validation and testing from command line
+- 📚 **Policy Playground** - Online tool to test policies without setup
+
+---
+
 ### v1.0.0 (Future) 🚀
 
 **Status:** Long-term vision
