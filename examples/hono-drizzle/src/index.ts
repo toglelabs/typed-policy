@@ -33,7 +33,7 @@ const mockAuthMiddleware = async (c: Context<{ Variables: Variables }>, next: Ne
   }
 
   c.set("user", user);
-  await next();
+  return next();
 };
 
 app.use("/*", mockAuthMiddleware);
