@@ -405,6 +405,189 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 | Complex policies | ✅ | ✅ | ✅ | ⚠️ |
 | Function expressions | ✅ | ⚠️ | ❌ | ❌ |
 
+## Roadmap
+
+### Current: v0.2.x ✅
+
+**Status:** Released and stable
+
+**Features:**
+- ✅ **Separate Actor/Subject Contexts** - Type-safe separation of user and resource contexts
+- ✅ **Function Expressions** - Pure functions for complex authorization logic: `({ actor, subject }) => boolean | Expr`
+- ✅ **Boolean Literals** - Static permissions: `true` / `false`
+- ✅ **Declarative DSL** - Type-safe operators: `eq`, `and`, `or`
+- ✅ **Frontend Evaluation** - `evaluate(action, { actor, subject })`
+- ✅ **Backend SQL Compilation** - `compile(action, { actor, tables })`
+- ✅ **Zero Runtime Dependencies** - Core package has no dependencies
+- ✅ **Type Inference** - Automatic type inference from policy definitions
+- ✅ **Drizzle ORM Integration** - First-class SQL compilation support
+
+**Packages:**
+- `@typed-policy/core@0.2.x`
+- `@typed-policy/eval@0.2.x`
+- `@typed-policy/drizzle@0.2.x`
+
+---
+
+### v0.3.0 (In Development) 🔜
+
+**Status:** Planning phase
+
+**Focus:** Additional Operators
+
+**Planned Features:**
+
+#### Essential Operators
+- 🔜 **`neq`** - Not equal: `neq("post.status", "deleted")`
+- 🔜 **`in`** - Array membership: `in("user.role", ["admin", "moderator"])`
+- 🔜 **`in`** - Contains check: `in("post.tags", "featured")`
+
+#### Comparison Operators
+- 🔜 **`gt`** / **`lt`** - Greater/Less than: `gt("post.createdAt", date)`
+- 🔜 **`gte`** / **`lte`** - Greater/Less than or equal: `gte("user.age", 18)`
+
+#### Null Checks
+- 🔜 **`isNull`** - Check if null: `isNull("post.deletedAt")`
+- 🔜 **`isNotNull`** - Check if not null: `isNotNull("post.publishedAt")`
+
+#### String Operators
+- 🔜 **`startsWith`** - String prefix: `startsWith("post.title", "[DRAFT]")`
+- 🔜 **`endsWith`** - String suffix: `endsWith("post.title", "(Archived)")`
+
+**Example Usage:**
+```typescript
+import { policy, eq, neq, in, gt, isNull } from "@typed-policy/core";
+
+const postPolicy = policy<Actor, Subject>({
+  subject: "Post",
+  actions: {
+    // Not equal
+    read: neq("post.status", "archived"),
+    
+    // Array membership
+    update: in("user.role", ["admin", "moderator"]),
+    
+    // Greater than
+    viewRecent: gt("post.createdAt", "2024-01-01"),
+    
+    // Null check with DSL
+    listActive: and(
+      isNull("post.deletedAt"),
+      eq("post.published", true)
+    ),
+    
+    // Complex combination
+    adminOrRecent: or(
+      in("user.role", ["admin", "moderator"]),
+      and(
+        gt("post.createdAt", "2024-01-01"),
+        neq("post.status", "draft")
+      )
+    )
+  }
+});
+```
+
+---
+
+### v0.4.0 (Planned) 📋
+
+**Status:** Backlog
+
+**Focus:** Developer Experience & Utilities
+
+**Planned Features:**
+
+#### Policy Validation
+- 📋 **`validatePolicy()`** - Runtime validation of policy definitions
+- 📋 **Better Error Messages** - Path suggestions for typos
+- 📋 **Debug Mode** - Step-by-step evaluation tracing
+
+#### Multi-Tenancy Helpers
+- 📋 **`tenantScoped()`** - Automatic tenant isolation
+- 📋 **`belongsToTenant()`** - Helper for organization scoping
+- 📋 **`crossTenant()`** - Cross-tenant access rules
+
+#### Policy Composition
+- 📋 **`extend()`** - Extend base policies
+- 📋 **`andPolicies()`** - Combine multiple policies with AND
+- 📋 **`orPolicies()`** - Combine multiple policies with OR
+
+**Example Usage:**
+```typescript
+// Base policy for all resources
+const basePolicy = policy<Actor, Subject>({
+  actions: {
+    read: ({ actor }) => actor.user.role !== "banned"
+  }
+});
+
+// Extend with specific rules
+const postPolicy = extend(basePolicy, {
+  subject: "Post",
+  actions: {
+    write: ({ actor }) => actor.user.role === "admin"
+  }
+});
+
+// Tenant-scoped policy
+const tenantPolicy = policy<Actor, Subject>({
+  actions: {
+    read: and(
+      tenantScoped("post.organizationId"),
+      eq("post.published", true)
+    )
+  }
+});
+```
+
+---
+
+### v1.0.0 (Future) 🚀
+
+**Status:** Long-term vision
+
+**Focus:** Production-Ready Features
+
+**Planned Features:**
+
+#### Performance
+- 🚀 **Function Result Caching** - Cache pure function results per request
+- 🚀 **Compiled Policy Cache** - Cache compiled SQL for repeated use
+- 🚀 **Lazy Evaluation** - Smart short-circuiting
+
+#### Additional ORM Support
+- 🚀 **Prisma Adapter** - SQL compilation for Prisma ORM
+- 🚀 **TypeORM Adapter** - SQL compilation for TypeORM
+- 🚀 **Raw SQL Output** - Get SQL AST for custom adapters
+
+#### Advanced Features
+- 🚀 **Async Policy Hooks** - Opt-in async operations (with caveats)
+- 🚀 **Policy Visualization** - Debug/inspect policies
+- 🚀 **ESLint Plugin** - Static analysis for policy patterns
+- 🚀 **OpenAPI Integration** - Generate policy documentation
+
+#### Enterprise Features
+- 🚀 **Policy Versioning** - Version control for policy changes
+- 🚀 **Audit Logging** - Track policy decisions
+- 🚀 **Hot Reload** - Update policies without restart
+
+---
+
+### Contributing to the Roadmap
+
+Want to influence the roadmap?
+
+- 💡 **Suggest features** - [Open a discussion](https://github.com/toglelabs/typed-policy/discussions)
+- 🐛 **Report bugs** - [Create an issue](https://github.com/toglelabs/typed-policy/issues)
+- 🚀 **Contribute code** - See [Contributing Guide](CONTRIBUTING.md)
+
+**Priority factors:**
+1. Community demand (👍 reactions on issues)
+2. Real-world use cases
+3. Breaking change impact
+4. Maintenance burden
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
