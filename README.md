@@ -429,105 +429,167 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 
 ---
 
-### v0.3.0 (In Development) 🔜
+### v0.3.0 (In Development) - Small Release
 
-**Status:** Planning phase
+**Focus:** Essential Operators Only
 
-**Focus:** Additional Operators
+**Features:**
 
-**Planned Features:**
-
-#### Essential Operators
-- 🔜 **`neq`** - Not equal: `neq("post.status", "deleted")`
-- 🔜 **`in`** - Array membership: `in("user.role", ["admin", "moderator"])`
-- 🔜 **`in`** - Contains check: `in("post.tags", "featured")`
-
-#### Comparison Operators
-- 🔜 **`gt`** / **`lt`** - Greater/Less than: `gt("post.createdAt", date)`
-- 🔜 **`gte`** / **`lte`** - Greater/Less than or equal: `gte("user.age", 18)`
-
-#### Null Checks
-- 🔜 **`isNull`** - Check if null: `isNull("post.deletedAt")`
-- 🔜 **`isNotNull`** - Check if not null: `isNotNull("post.publishedAt")`
-
-#### String Operators
-- 🔜 **`startsWith`** - String prefix: `startsWith("post.title", "[DRAFT]")`
-- 🔜 **`endsWith`** - String suffix: `endsWith("post.title", "(Archived)")`
+| Operator | Description | Example |
+|----------|-------------|---------|
+| 🔜 `neq` | Not equal | `neq("post.status", "deleted")` |
+| 🔜 `not` | Negation | `not(eq("post.archived", true))` |
+| 🔜 `in` | Array membership | `in("user.role", ["admin", "moderator"])` |
+| 🔜 `gt` | Greater than | `gt("user.age", 18)` |
+| 🔜 `lt` | Less than | `lt("post.createdAt", cutoffDate)` |
+| 🔜 `gte` | Greater than or equal | `gte("post.score", 0)` |
+| 🔜 `lte` | Less than or equal | `lte("user.loginAttempts", 3)` |
 
 **Example Usage:**
 ```typescript
-import { policy, eq, neq, in, gt, isNull } from "@typed-policy/core";
+import { policy, eq, neq, gt, in, and } from "@typed-policy/core";
 
 const postPolicy = policy<Actor, Subject>({
   subject: "Post",
   actions: {
-    // Not equal
-    read: neq("post.status", "archived"),
+    // Not deleted posts
+    read: neq("post.status", "deleted"),
     
-    // Array membership
-    update: in("user.role", ["admin", "moderator"]),
-    
-    // Greater than
-    viewRecent: gt("post.createdAt", "2024-01-01"),
-    
-    // Null check with DSL
-    listActive: and(
-      isNull("post.deletedAt"),
-      eq("post.published", true)
+    // Age restriction with role whitelist
+    viewMature: and(
+      gt("user.age", 18),
+      in("user.role", ["admin", "moderator", "verified"])
     ),
     
-    // Complex combination
-    adminOrRecent: or(
-      in("user.role", ["admin", "moderator"]),
-      and(
-        gt("post.createdAt", "2024-01-01"),
-        neq("post.status", "draft")
-      )
-    )
+    // Recent posts only
+    listRecent: gt("post.createdAt", "2024-01-01")
   }
 });
 ```
 
 ---
 
-### v0.4.0 (Planned) 📋
+### v0.4.0 (Planned) - COMPREHENSIVE RELEASE
 
-**Status:** Backlog
+**Focus:** Complete Operator Suite + Cross-Table Operations
 
-**Focus:** Developer Experience & Utilities
+**Features:**
 
-**Planned Features:**
+#### Tier 1 - Essential Operators (Continuation from v0.3)
 
-#### Policy Validation
-- 📋 **`validatePolicy()`** - Runtime validation of policy definitions
-- 📋 **Better Error Messages** - Path suggestions for typos
-- 📋 **Debug Mode** - Step-by-step evaluation tracing
+| Operator | Description | Example |
+|----------|-------------|---------|
+| 📋 `isNull` | Check if null | `isNull("post.deletedAt")` |
+| 📋 `isNotNull` | Check if not null | `isNotNull("post.publishedAt")` |
+
+```typescript
+// List active (non-deleted) posts
+listActive: and(
+  isNull("post.deletedAt"),
+  eq("post.status", "published")
+)
+```
+
+#### Tier 2 - String & Collection Operators
+
+| Operator | Description | Example |
+|----------|-------------|---------|
+| 📋 `startsWith` | String prefix | `startsWith("post.title", "[DRAFT]")` |
+| 📋 `endsWith` | String suffix | `endsWith("file.name", ".pdf")` |
+| 📋 `contains` | Array/string contains | `contains("post.tags", "featured")` |
+
+```typescript
+// Filter by file type
+listDocuments: endsWith("file.name", ".pdf"),
+
+// Check if post has specific tag
+hasFeaturedTag: contains("post.tags", "featured"),
+
+// Search drafts
+listDrafts: startsWith("post.title", "[DRAFT]")
+```
+
+#### Tier 3 - Advanced Operators
+
+| Operator | Description | Example |
+|----------|-------------|---------|
+| 📋 `between` | Range check | `between("post.createdAt", startDate, endDate)` |
+| 📋 `matches` | Regex pattern | `matches("user.email", /^[^@]+@company\.com$/)` |
+| 📋 `oneOf` | Multiple allowed values | `oneOf("post.status", ["draft", "review"])` |
+
+```typescript
+// Date range filter
+listThisMonth: between("post.createdAt", "2024-01-01", "2024-01-31"),
+
+// Company email validation
+isCompanyUser: matches("user.email", /@company\.com$/),
+
+// Status workflow
+canEdit: oneOf("post.status", ["draft", "review", "rejected"])
+```
+
+#### Cross-Table Operations (Addresses Major Limitation)
+
+| Operator | Description | Example |
+|----------|-------------|---------|
+| 📋 `exists(table, conditions)` | Check if related record exists | `exists("assignments", { userId: "user.id", taskId: "task.id" })` |
+| 📋 `count(table, conditions)` | Count related records | `count("comments", { postId: "post.id" })` |
+| 📋 `hasMany(table, conditions)` | Check for multiple relationships | `hasMany("permissions", { userId: "user.id", resource: "post" })` |
+
+```typescript
+// Check if user is assigned to task
+listAssigned: ({ actor }) => {
+  if (actor.user.role === "admin") return true;
+  return exists("task_assignments", {
+    userId: actor.user.id,
+    taskId: "task.id"
+  });
+},
+
+// Only show posts with comments
+hasDiscussion: gte(
+  count("comments", { postId: "post.id" }),
+  1
+),
+
+// Check for multiple permissions
+canModerate: hasMany("user_permissions", {
+  userId: "user.id",
+  action: "moderate"
+})
+```
 
 #### Multi-Tenancy Helpers
-- 📋 **`tenantScoped()`** - Automatic tenant isolation
-- 📋 **`belongsToTenant()`** - Helper for organization scoping
-- 📋 **`crossTenant()`** - Cross-tenant access rules
 
-#### Cross-Table Operations (Addresses Major v0.2 Limitation)
-- 📋 **`exists(table, conditions)`** - Check if related record exists
-  ```typescript
-  list: ({ actor }) => {
-    if (actor.user.role === "admin") return true;
-    return exists("task_assignments", {
-      userId: actor.user.id,
-      taskId: "task.id"  // References subject context
-    });
+| Helper | Description | Example |
+|--------|-------------|---------|
+| 📋 `tenantScoped(field)` | Automatic tenant isolation | `tenantScoped("post.organizationId")` |
+| 📋 `belongsToTenant()` | Organization scoping | `belongsToTenant("user.organizationId", "post.organizationId")` |
+
+```typescript
+const tenantPolicy = policy<Actor, Subject>({
+  subject: "Post",
+  actions: {
+    // Automatic tenant isolation
+    read: and(
+      tenantScoped("post.organizationId"),
+      eq("post.published", true)
+    ),
+    
+    // Cross-field tenant check
+    update: belongsToTenant("user.organizationId", "post.organizationId")
   }
-  ```
-- 📋 **`count(table, conditions)`** - Count related records
-- 📋 **`hasMany(table, conditions)`** - Check for multiple relationships
+});
+```
 
 #### Policy Composition
-- 📋 **`extend()`** - Extend base policies
-- 📋 **`andPolicies()`** - Combine multiple policies with AND
-- 📋 **`orPolicies()`** - Combine multiple policies with OR
 
-**Example Usage:**
+| Helper | Description | Example |
+|--------|-------------|---------|
+| 📋 `extend()` | Extend base policies | `extend(basePolicy, { ... })` |
+| 📋 `andPolicies()` | Combine with AND | `andPolicies([policy1, policy2])` |
+| 📋 `orPolicies()` | Combine with OR | `orPolicies([policy1, policy2])` |
+
 ```typescript
 // Base policy for all resources
 const basePolicy = policy<Actor, Subject>({
@@ -540,19 +602,17 @@ const basePolicy = policy<Actor, Subject>({
 const postPolicy = extend(basePolicy, {
   subject: "Post",
   actions: {
-    write: ({ actor }) => actor.user.role === "admin"
+    write: ({ actor }) => actor.user.role === "admin",
+    delete: ({ actor }) => actor.user.role === "admin"
   }
 });
 
-// Tenant-scoped policy
-const tenantPolicy = policy<Actor, Subject>({
-  actions: {
-    read: and(
-      tenantScoped("post.organizationId"),
-      eq("post.published", true)
-    )
-  }
-});
+// Combine multiple policies
+const combinedPolicy = andPolicies([
+  tenantPolicy,
+  rolePolicy,
+  statusPolicy
+]);
 ```
 
 ---
