@@ -508,6 +508,20 @@ const postPolicy = policy<Actor, Subject>({
 - 📋 **`belongsToTenant()`** - Helper for organization scoping
 - 📋 **`crossTenant()`** - Cross-tenant access rules
 
+#### Cross-Table Operations (Addresses Major v0.2 Limitation)
+- 📋 **`exists(table, conditions)`** - Check if related record exists
+  ```typescript
+  list: ({ actor }) => {
+    if (actor.user.role === "admin") return true;
+    return exists("task_assignments", {
+      userId: actor.user.id,
+      taskId: "task.id"  // References subject context
+    });
+  }
+  ```
+- 📋 **`count(table, conditions)`** - Count related records
+- 📋 **`hasMany(table, conditions)`** - Check for multiple relationships
+
 #### Policy Composition
 - 📋 **`extend()`** - Extend base policies
 - 📋 **`andPolicies()`** - Combine multiple policies with AND
@@ -587,6 +601,126 @@ Want to influence the roadmap?
 2. Real-world use cases
 3. Breaking change impact
 4. Maintenance burden
+
+---
+
+## Known Limitations
+
+### Current v0.2.x Limitations
+
+#### 1. No Cross-Table Relationships (No `exists` Operator)
+
+**Problem:** Policies cannot check for relationships across multiple tables.
+
+**Example:** Checking if a user has a task assignment:
+```typescript
+// ❌ NOT POSSIBLE in v0.2
+list: ({ actor }) => {
+  if (actor.user.role === "admin") return true;
+  // Can't check if user has task_assignment record
+}
+```
+
+**Workaround:** Handle relationship checks at the application layer:
+```typescript
+// Application layer check
+const hasAssignment = await db.query.task_assignments.findFirst({
+  where: and(
+    eq(task_assignments.userId, user.id),
+    eq(task_assignments.taskId, taskId)
+  )
+});
+
+if (!hasAssignment && user.role !== "admin") {
+  return c.json({ error: "Not assigned" }, 403);
+}
+
+// Then apply business rules via policy
+const canRead = evaluate(policy.actions.read, { actor, resources });
+```
+
+**Solution:** `exists` operator planned for v0.4:
+```typescript
+// ✅ PLANNED for v0.4
+list: ({ actor }) => {
+  if (actor.user.role === "admin") return true;
+  return exists("task_assignments", {
+    userId: actor.user.id,
+    taskId: "task.id"
+  });
+}
+```
+
+#### 2. No Subqueries or Joins in SQL Compilation
+
+**Problem:** SQL compilation is limited to single-table WHERE clauses.
+
+**Impact:** Cannot generate SQL like:
+```sql
+-- ❌ Cannot generate this SQL
+SELECT * FROM tasks t
+WHERE t.id IN (
+  SELECT task_id FROM task_assignments 
+  WHERE user_id = $1
+)
+```
+
+**Workaround:** Use application-layer filtering or denormalize data.
+
+**Solution:** Enhanced SQL generation planned for v1.0 with Prisma/TypeORM adapters.
+
+#### 3. Functions Must Be Pure
+
+**Problem:** Policy functions cannot access external data sources.
+
+**Limitations:**
+- ❌ Cannot query database
+- ❌ Cannot call APIs
+- ❌ Cannot read files
+- ✅ Can only use provided `actor` and `subject` context
+
+**Example:**
+```typescript
+// ❌ NOT ALLOWED - impure function
+read: async ({ actor }) => {
+  const perms = await db.getPermissions(actor.id);  // ❌ Async database call
+  return perms.includes("read");
+}
+```
+
+**Workaround:** Pre-fetch all needed data before policy evaluation.
+
+#### 4. No Array/Collection Operations
+
+**Problem:** Cannot check membership in collections efficiently.
+
+**Example:**
+```typescript
+// ❌ NOT POSSIBLE - checking if user is in list of allowed users
+read: ({ actor, subject }) => {
+  const allowedUsers = ["user-1", "user-2", "user-3"];
+  return allowedUsers.includes(actor.user.id);  // ❌ No includes operator
+}
+```
+
+**Workaround:** Use `or()` with multiple `eq()` checks or handle in application layer.
+
+**Solution:** `in` operator planned for v0.3:
+```typescript
+// ✅ PLANNED for v0.3
+read: in("user.id", ["user-1", "user-2", "user-3"])
+```
+
+### Workarounds Summary
+
+| Limitation | Workaround | Planned Solution |
+|------------|-----------|------------------|
+| Cross-table relationships | Application-layer checks | `exists` operator (v0.4) |
+| No subqueries | Denormalize data or filter in app | Enhanced SQL (v1.0) |
+| Pure functions only | Pre-fetch all data | Async hooks (v1.0 opt-in) |
+| No array ops | Multiple `eq()` with `or()` | `in` operator (v0.3) |
+
+---
 
 ## License
 
