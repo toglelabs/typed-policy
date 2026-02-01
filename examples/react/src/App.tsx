@@ -1,7 +1,6 @@
-import type { PolicyContext } from "@typed-policy/core";
 import { evaluate } from "@typed-policy/eval";
 import { useState } from "react";
-import { postPolicy } from "./policies";
+import { postPolicy, type Actor, type Subject } from "./policies.js";
 import "./App.css";
 
 function App() {
@@ -10,8 +9,11 @@ function App() {
   const [postOwnerId, setPostOwnerId] = useState("user-1");
   const [postPublished, setPostPublished] = useState(true);
 
-  const context: PolicyContext = {
+  const actor: Actor = {
     user: { id: userId, role: userRole },
+  };
+
+  const subject: Subject = {
     post: {
       id: "post-1",
       ownerId: postOwnerId,
@@ -19,16 +21,19 @@ function App() {
     },
   };
 
-  const canRead = evaluate(postPolicy.actions.read, context as Record<string, unknown>);
-  const canWrite = evaluate(postPolicy.actions.write, context as Record<string, unknown>);
-  const canDelete = evaluate(postPolicy.actions.delete, context as Record<string, unknown>);
+  // v0.2 API: Pass actor and subject separately in context object
+  const canRead = evaluate(postPolicy.actions.read, { actor, subject });
+  const canWrite = evaluate(postPolicy.actions.write, { actor, subject });
+  const canDelete = evaluate(postPolicy.actions.delete, { actor, subject });
+  const alwaysAllow = evaluate(postPolicy.actions.alwaysAllow, { actor, subject });
+  const neverAllow = evaluate(postPolicy.actions.neverAllow, { actor, subject });
 
   return (
     <div className="app">
-      <h1>Typed Policy - React Example</h1>
+      <h1>Typed Policy - React Example (v0.2)</h1>
 
       <div className="controls">
-        <h2>User Context</h2>
+        <h2>Actor Context (User)</h2>
         <div className="control-group">
           <label>User Role:</label>
           <select
@@ -44,7 +49,7 @@ function App() {
           <input type="text" value={userId} onChange={(e) => setUserId(e.target.value)} />
         </div>
 
-        <h2>Post Context</h2>
+        <h2>Subject Context (Post)</h2>
         <div className="control-group">
           <label>Post Owner ID:</label>
           <input type="text" value={postOwnerId} onChange={(e) => setPostOwnerId(e.target.value)} />
@@ -62,39 +67,54 @@ function App() {
       <div className="results">
         <h2>Policy Results</h2>
         <div className={`permission ${canRead ? "granted" : "denied"}`}>
-          Read: {canRead ? "GRANTED" : "DENIED"}
+          Read (Function): {canRead ? "GRANTED" : "DENIED"}
         </div>
         <div className={`permission ${canWrite ? "granted" : "denied"}`}>
-          Write: {canWrite ? "GRANTED" : "DENIED"}
+          Write (Function): {canWrite ? "GRANTED" : "DENIED"}
         </div>
         <div className={`permission ${canDelete ? "granted" : "denied"}`}>
-          Delete: {canDelete ? "GRANTED" : "DENIED"}
+          Delete (Function): {canDelete ? "GRANTED" : "DENIED"}
+        </div>
+        <div className={`permission ${alwaysAllow ? "granted" : "denied"}`}>
+          Always Allow (Literal): {alwaysAllow ? "GRANTED" : "DENIED"}
+        </div>
+        <div className={`permission ${neverAllow ? "granted" : "denied"}`}>
+          Never Allow (Literal): {neverAllow ? "GRANTED" : "DENIED"}
         </div>
       </div>
 
       <div className="code-preview">
-        <h2>Policy Definition</h2>
-        <pre>{`export const postPolicy = policy<PolicyContext>({
-  subject: "Post",
-  actions: {
-    read: or(
-      eq("user.role", "admin"),
-      eq("post.published", true),
-      eq("post.ownerId", "user.id")
-    ),
-    write: or(
-      eq("user.role", "admin"),
-      and(
-        eq("post.ownerId", "user.id"),
-        eq("post.published", false)
-      )
-    ),
-    delete: or(
-      eq("user.role", "admin"),
-      eq("post.ownerId", "user.id")
-    )
-  }
-});`}</pre>
+        <h2>Policy Definition (v0.2 API)</h2>
+        <pre>{`// Three policy styles:
+
+// 1. Functions: Pure functions with actor/subject
+read: ({ actor, subject }) => {
+  if (actor.user.role === "admin") return true;
+  return subject.post.published || 
+         subject.post.ownerId === actor.user.id;
+}
+
+// 2. Declarative: Using DSL operators
+adminOnly: or(
+  eq("post.published", true), 
+  eq("post.ownerId", "user.id")
+)
+
+// 3. Literals: Boolean values
+alwaysAllow: true,
+neverAllow: false`}</pre>
+      </div>
+
+      <div className="code-preview">
+        <h2>Evaluate Usage</h2>
+        <pre>{`const actor = { user: { id: "user-1", role: "user" } };
+const subject = { post: { id: "post-1", ownerId: "user-1", published: true } };
+
+// v0.2 API: Pass actor and subject separately
+const canRead = evaluate(
+  postPolicy.actions.read, 
+  { actor, subject }
+);`}</pre>
       </div>
     </div>
   );

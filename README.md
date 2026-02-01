@@ -29,7 +29,7 @@
 - [Packages](#packages)
 - [API Reference](#api-reference)
 - [Examples](#examples)
-- [Roadmap](#roadmap)
+- [Migration Guide](#migration-guide)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -39,33 +39,42 @@
 import { policy, eq, and, or } from "@typed-policy/core";
 import { evaluate } from "@typed-policy/eval";
 
-// 1. Define your policy
-const postPolicy = policy<{
+// Define types for your actor and subject
+type MyActor = {
   user: { id: string; role: "admin" | "user" };
+};
+
+type MySubject = {
   post: { id: string; ownerId: string; published: boolean };
-}>({
+};
+
+// 1. Define your policy with actor and subject types
+const postPolicy = policy<MyActor, MySubject>({
   subject: "Post",
   actions: {
-    read: or(
-      eq("user.role", "admin"),
-      eq("post.published", true),
-      eq("post.ownerId", "user.id")
-    ),
-    delete: eq("user.role", "admin")
+    // Functions for complex logic
+    read: ({ actor, subject }) => {
+      if (actor.user.role === "admin") return true;
+      return subject.post.published || actor.user.id === subject.post.ownerId;
+    },
+    // Boolean literals
+    create: true,
+    // Declarative DSL
+    delete: eq("post.ownerId", "user.id")
   }
 });
 
 // 2. Evaluate on frontend
 const canRead = evaluate(postPolicy.actions.read, {
-  user: { id: "1", role: "user" },
-  post: { id: "1", ownerId: "1", published: true }
+  actor: { user: { id: "1", role: "user" } },
+  subject: { post: { id: "1", ownerId: "1", published: false } }
 });
 // → true
 
 // 3. Compile to SQL on backend (Drizzle)
 import { compileToDrizzle } from "@typed-policy/drizzle";
 const where = compileToDrizzle(postPolicy.actions.read, {
-  user: { id: "1", role: "user" },
+  actor: { user: { id: "1", role: "user" } },
   tables: { post: posts.ownerId }
 });
 ```
@@ -93,17 +102,24 @@ pnpm add @typed-policy/core @typed-policy/eval @typed-policy/drizzle
 
 ### Define Your Policy
 
-Policies are defined against a typed context:
+Policies are defined with separate actor and subject types. Actions can be:
+
+1. **Function expressions** - Pure functions receiving `{ actor, subject }`
+2. **Boolean literals** - `true` or `false`
+3. **Declarative DSL** - Using operators like `eq`, `and`, `or`
 
 ```typescript
 import { policy, eq, and, or } from "@typed-policy/core";
 
-type MyContext = {
+type MyActor = {
   user: {
     id: string;
     role: "admin" | "user";
     organizationId: string;
   };
+};
+
+type MySubject = {
   resource: {
     id: string;
     ownerId: string;
@@ -112,29 +128,25 @@ type MyContext = {
   };
 };
 
-export const resourcePolicy = policy<MyContext>({
+export const resourcePolicy = policy<MyActor, MySubject>({
   subject: "Resource",
   actions: {
     // Admin can do everything
-    read: eq("user.role", "admin"),
-    
+    read: ({ actor }) => actor.user.role === "admin",
+
     // Users can read published resources in their org
-    list: and(
-      eq("resource.status", "published"),
-      eq("resource.organizationId", "user.organizationId")
-    ),
-    
-    // Owners or admins can update
+    list: ({ actor, subject }) =>
+      subject.resource.status === "published" &&
+      subject.resource.organizationId === actor.user.organizationId,
+
+    // Owners or admins can update (using DSL)
     update: or(
-      eq("user.role", "admin"),
-      and(
-        eq("resource.ownerId", "user.id"),
-        eq("resource.status", "draft")
-      )
+      eq("resource.ownerId", "user.id"),
+      ({ actor }) => actor.user.role === "admin"
     ),
-    
+
     // Only admins can delete
-    delete: eq("user.role", "admin")
+    delete: ({ actor }) => actor.user.role === "admin"
   }
 });
 ```
@@ -142,14 +154,14 @@ export const resourcePolicy = policy<MyContext>({
 **Type Safety**: TypeScript will catch errors at compile time:
 
 ```typescript
-// ❌ Error: "user.rol" is not a valid path
-eq("user.rol", "admin")
+// ❌ Error: "actor.user.rol" is not a valid path
+({ actor }) => actor.user.rol === "admin"
 
-// ❌ Error: "superadmin" is not assignable to "admin" | "user"
-eq("user.role", "superadmin")
+// ❌ Error: Type 'string' is not assignable to 'admin' | 'user'
+({ actor }) => actor.user.role === "superadmin"
 
-// ❌ Error: can't compare string to boolean
-eq("user.id", true)
+// ❌ Error: Type mismatch in eq()
+eq("resource.ownerId", true)
 ```
 
 ### Frontend Evaluation
@@ -162,10 +174,10 @@ import { evaluate } from "@typed-policy/eval";
 // Check permissions for UI rendering
 function PostCard({ post, user }) {
   const canEdit = evaluate(resourcePolicy.actions.update, {
-    user,
-    resource: post
+    actor: { user },
+    subject: { resource: post }
   });
-  
+
   return (
     <div>
       <h2>{post.title}</h2>
@@ -175,7 +187,10 @@ function PostCard({ post, user }) {
 }
 
 // Check for route guards
-const canAccess = evaluate(resourcePolicy.actions.read, context);
+const canAccess = evaluate(resourcePolicy.actions.read, {
+  actor: { user },
+  subject: { resource: post }
+});
 if (!canAccess) {
   return <Redirect to="/unauthorized" />;
 }
@@ -192,19 +207,19 @@ import { db, resources } from "./db";
 // In your API route
 app.get("/resources", async (c) => {
   const user = c.get("user");
-  
+
   // Compile policy to SQL WHERE clause
   const where = compileToDrizzle(resourcePolicy.actions.list, {
-    user,
-    tables: { resource: resources.ownerId }  // Map paths to table columns
+    actor: { user },
+    tables: { resource: resources.ownerId }  // Map subject paths to table columns
   });
-  
+
   // Query only accessible resources
   const results = await db
     .select()
     .from(resources)
     .where(where);
-  
+
   return c.json({ resources: results });
 });
 ```
@@ -226,7 +241,7 @@ app.get("/resources", async (c) => {
 Equality comparison between a path and a value or another path.
 
 ```typescript
-eq("user.role", "admin")           // Compare to literal
+eq("post.published", true)         // Compare to literal
 eq("post.ownerId", "user.id")      // Compare two paths
 ```
 
@@ -252,19 +267,39 @@ or(
 )
 ```
 
-#### `policy(config)`
+#### `policy<Actor, Subject>(config)`
 
-Define a policy with multiple actions.
+Define a policy with type-safe actor and subject contexts.
 
 ```typescript
-const policy = policy<Context>({
+const myPolicy = policy<MyActor, MySubject>({
   subject: "Resource",
   actions: {
-    read: eq("user.role", "admin"),
-    write: eq("user.role", "admin")
+    // Function expression
+    read: ({ actor, subject }) => {
+      return actor.user.role === "admin" || subject.resource.published;
+    },
+    // Boolean literal
+    create: true,
+    // Declarative DSL
+    delete: eq("user.role", "admin")
   }
 });
 ```
+
+**Action Types:**
+
+1. **Function expressions**: `({ actor, subject }) => boolean | Expr`
+   - Receive typed actor and subject contexts
+   - Return boolean or continue with DSL operators
+
+2. **Boolean literals**: `true` or `false`
+   - Static permissions
+   - Useful for feature flags or hardcoded rules
+
+3. **Declarative DSL**: `eq()`, `and()`, `or()`
+   - Type-safe path references
+   - Can be compiled to SQL
 
 ### Eval Package
 
@@ -276,8 +311,8 @@ Evaluates a policy expression against a runtime context.
 import { evaluate } from "@typed-policy/eval";
 
 const result = evaluate(policy.actions.read, {
-  user: { id: "1", role: "admin" },
-  resource: { id: "1", ownerId: "1", published: true }
+  actor: { user: { id: "1", role: "admin" } },
+  subject: { resource: { id: "1", ownerId: "1", published: true } }
 });
 // → true
 ```
@@ -292,7 +327,7 @@ Compiles a policy expression to a Drizzle SQL condition.
 import { compileToDrizzle } from "@typed-policy/drizzle";
 
 const where = compileToDrizzle(policy.actions.read, {
-  user: { id: "1", role: "admin" },
+  actor: { user: { id: "1", role: "admin" } },
   tables: {
     resource: resourcesTable.ownerId  // Map "resource.*" paths
   }
@@ -327,29 +362,28 @@ pnpm install
 pnpm dev
 ```
 
-## Roadmap
+## Migration Guide
 
-### v0.2 (In Progress)
+### Migrating from v0.1 to v0.2
 
-- [ ] `in` operator for array membership
-- [ ] `neq` operator for inequality
-- [ ] Multi-tenant helpers
-- [ ] Policy composition utilities
+v0.2 introduces a new API with separate actor and subject types. See the [Migration Guide](MIGRATION_v0.1_to_v0.2.md) for detailed instructions.
 
-### v1.0
+**Key changes:**
+- Policy context is now split into `actor` and `subject`
+- Actions can use function expressions `({ actor, subject }) => boolean`
+- Actions can use boolean literals `true`, `false`
+- New generic signature: `policy<Actor, Subject>()`
 
-- [ ] Prisma adapter
-- [ ] Raw SQL AST output
-- [ ] Policy visualization/debugger
-- [ ] ESLint plugin for policy validation
-- [ ] Performance benchmarks
+### Upgrading
 
-### Future
+```bash
+# Update all packages
+pnpm update @typed-policy/core @typed-policy/eval @typed-policy/drizzle
 
-- [ ] Time-based conditions
-- [ ] Async policy hooks (opt-in)
-- [ ] GraphQL directive integration
-- [ ] OpenAPI policy generation
+# Or reinstall
+pnpm remove @typed-policy/core @typed-policy/eval @typed-policy/drizzle
+pnpm add @typed-policy/core @typed-policy/eval @typed-policy/drizzle
+```
 
 ## Contributing
 
@@ -369,6 +403,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 | Frontend + Backend | ✅ | ✅ | ✅ | ❌ |
 | Zero runtime deps | ✅ | ❌ | ❌ | ✅ |
 | Complex policies | ✅ | ✅ | ✅ | ⚠️ |
+| Function expressions | ✅ | ⚠️ | ❌ | ❌ |
 
 ## License
 

@@ -1,26 +1,20 @@
 import { compileToDrizzle } from "@typed-policy/drizzle";
 import { evaluate } from "@typed-policy/eval";
 import { eq } from "drizzle-orm";
-import type { AnyColumn } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Context, Next } from "hono";
 import { db, posts } from "./db.js";
-import { type AppPolicyContext, postPolicy } from "./policies.js";
-
-type User = {
-  id: string;
-  role: "admin" | "user";
-};
+import { type Actor, type Subject, postPolicy } from "./policies.js";
 
 type Variables = {
-  user: User;
+  user: Actor["user"];
 };
 
 const app = new Hono<{ Variables: Variables }>();
 
 const mockAuthMiddleware = async (c: Context<{ Variables: Variables }>, next: Next) => {
   const authHeader = c.req.header("Authorization");
-  let user: User;
+  let user: Actor["user"];
 
   if (authHeader === "Bearer admin-token") {
     user = { id: "admin-1", role: "admin" };
@@ -40,11 +34,13 @@ app.use("/*", mockAuthMiddleware);
 
 app.get("/posts", async (c) => {
   const user = c.get("user");
+  const actor: Actor = { user };
 
-  const listCondition = compileToDrizzle<AppPolicyContext>(postPolicy.actions.list, {
-    user,
+  // v0.2 API: compileToDrizzle with actor and tables
+  const listCondition = compileToDrizzle<Subject, Actor>(postPolicy.actions.list, {
+    actor,
     tables: {
-      post: posts.ownerId as AnyColumn,
+      post: posts.id, // Subject table mapping
     },
   });
 
@@ -52,13 +48,14 @@ app.get("/posts", async (c) => {
 
   return c.json({
     posts: allPosts,
-    user: { id: user.id, role: user.role },
+    actor: user,
   });
 });
 
 app.get("/posts/:id", async (c) => {
   const user = c.get("user");
   const postId = c.req.param("id");
+  const actor: Actor = { user };
 
   const post = await db.select().from(posts).where(eq(posts.id, postId)).get();
 
@@ -66,8 +63,7 @@ app.get("/posts/:id", async (c) => {
     return c.json({ error: "Post not found" }, 404);
   }
 
-  const context: AppPolicyContext = {
-    user,
+  const subject: Subject = {
     post: {
       id: post.id,
       ownerId: post.ownerId,
@@ -75,24 +71,25 @@ app.get("/posts/:id", async (c) => {
     },
   };
 
-  const canRead = evaluate(postPolicy.actions.read, context as Record<string, unknown>);
+  // v0.2 API: evaluate with { actor, subject } context
+  const canRead = evaluate(postPolicy.actions.read, { actor, subject });
 
   if (!canRead) {
     return c.json({ error: "Forbidden" }, 403);
   }
 
-  return c.json({ post, user: { id: user.id, role: user.role } });
+  return c.json({ post, actor: user });
 });
 
 app.post("/posts", async (c) => {
   const user = c.get("user");
-
-  const context: AppPolicyContext = {
-    user,
+  const actor: Actor = { user };
+  const subject: Subject = {
     post: { id: "", ownerId: "", published: false },
   };
 
-  const canCreate = evaluate(postPolicy.actions.create, context as Record<string, unknown>);
+  // v0.2 API: evaluate with { actor, subject }
+  const canCreate = evaluate(postPolicy.actions.create, { actor, subject });
 
   if (!canCreate) {
     return c.json({ error: "Forbidden" }, 403);
@@ -119,6 +116,7 @@ app.post("/posts", async (c) => {
 app.delete("/posts/:id", async (c) => {
   const user = c.get("user");
   const postId = c.req.param("id");
+  const actor: Actor = { user };
 
   const post = await db.select().from(posts).where(eq(posts.id, postId)).get();
 
@@ -126,8 +124,7 @@ app.delete("/posts/:id", async (c) => {
     return c.json({ error: "Post not found" }, 404);
   }
 
-  const context: AppPolicyContext = {
-    user,
+  const subject: Subject = {
     post: {
       id: post.id,
       ownerId: post.ownerId,
@@ -135,7 +132,8 @@ app.delete("/posts/:id", async (c) => {
     },
   };
 
-  const canDelete = evaluate(postPolicy.actions.delete, context as Record<string, unknown>);
+  // v0.2 API: evaluate with { actor, subject }
+  const canDelete = evaluate(postPolicy.actions.delete, { actor, subject });
 
   if (!canDelete) {
     return c.json({ error: "Forbidden" }, 403);
@@ -146,6 +144,24 @@ app.delete("/posts/:id", async (c) => {
   return c.json({ message: "Post deleted" });
 });
 
-app.get("/health", (c) => c.json({ status: "ok" }));
+// Example of archive endpoint that uses false literal
+app.post("/posts/:id/archive", async (c) => {
+  const user = c.get("user");
+  const actor: Actor = { user };
+  const subject: Subject = {
+    post: { id: "", ownerId: "", published: false },
+  };
+
+  // This will always deny because archive action is `false` literal
+  const canArchive = evaluate(postPolicy.actions.archive, { actor, subject });
+
+  if (!canArchive) {
+    return c.json({ error: "Archive action is disabled" }, 403);
+  }
+
+  return c.json({ message: "Post archived" });
+});
+
+app.get("/health", (c) => c.json({ status: "ok", version: "v0.2" }));
 
 export default app;

@@ -1,7 +1,7 @@
 {
   "name": "@typed-policy/examples-react",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "React example for Typed Policy",
   "author": "Ihsan VP <m.ihsan.vp@gmail.com>",
   "license": "MIT",
