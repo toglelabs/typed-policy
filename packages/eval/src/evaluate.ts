@@ -104,10 +104,10 @@ export function evaluate<T, A = unknown>(
       return leftValue === rightValue;
     }
     case "and": {
-      return expr.rules.every((rule) => evaluate(rule, { actor, resources }));
+      return expr.rules.every((rule: Expr<T, A>) => evaluate(rule, { actor, resources }));
     }
     case "or": {
-      return expr.rules.some((rule) => evaluate(rule, { actor, resources }));
+      return expr.rules.some((rule: Expr<T, A>) => evaluate(rule, { actor, resources }));
     }
     default: {
       throw new Error(`Unknown expression kind: ${JSON.stringify(expr)}`);
