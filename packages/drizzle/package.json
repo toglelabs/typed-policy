@@ -1,0 +1,47 @@
+{
+  "name": "@typed-policy/drizzle",
+  "version": "0.1.0",
+  "description": "Drizzle ORM SQL compiler for typed policies",
+  "author": "Ihsan VP <m.ihsan.vp@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toglelabs/typed-policy.git",
+    "directory": "packages/drizzle"
+  },
+  "homepage": "https://github.com/toglelabs/typed-policy/tree/main/packages/drizzle#readme",
+  "bugs": {
+    "url": "https://github.com/toglelabs/typed-policy/issues"
+  },
+  "keywords": ["typescript", "policy", "authorization", "drizzle", "orm", "sql", "database"],
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "clean": "rm -rf dist",
+    "lint": "biome check src",
+    "format": "biome format --write src"
+  },
+  "dependencies": {
+    "@typed-policy/core": "workspace:*"
+  },
+  "peerDependencies": {
+    "drizzle-orm": ">=0.29.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.5.0",
+    "@types/node": "^20.10.0",
+    "typescript": "^5.3.0",
+    "tsup": "^8.0.0",
+    "vitest": "^1.0.0",
+    "drizzle-orm": "^0.29.0"
+  }
+}

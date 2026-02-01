@@ -1,0 +1,51 @@
+{
+  "name": "typed-policy",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Policy-as-Code for TypeScript with compile-time safety",
+  "author": "Ihsan VP <m.ihsan.vp@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toglelabs/typed-policy.git"
+  },
+  "homepage": "https://github.com/toglelabs/typed-policy#readme",
+  "bugs": {
+    "url": "https://github.com/toglelabs/typed-policy/issues"
+  },
+  "keywords": [
+    "typescript",
+    "policy",
+    "authorization",
+    "rbac",
+    "drizzle",
+    "casl",
+    "type-safe",
+    "access-control",
+    "policy-as-code",
+    "row-level-security"
+  ],
+  "scripts": {
+    "build": "pnpm -r build",
+    "test": "vitest",
+    "test:coverage": "vitest --coverage",
+    "typecheck": "pnpm -r typecheck",
+    "lint": "pnpm -r lint",
+    "clean": "pnpm -r clean",
+    "check": "biome check .",
+    "format": "biome format --write .",
+    "check:fix": "biome check --write ."
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.5.0",
+    "@types/node": "^20.10.0",
+    "@vitest/coverage-v8": "^1.0.0",
+    "typescript": "^5.3.0",
+    "vitest": "^1.0.0",
+    "tsup": "^8.0.0"
+  },
+  "engines": {
+    "node": ">=18",
+    "pnpm": ">=8"
+  }
+}

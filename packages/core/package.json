@@ -1,0 +1,39 @@
+{
+  "name": "@typed-policy/core",
+  "version": "0.1.0",
+  "description": "Core types and DSL for typed policies",
+  "author": "Ihsan VP <m.ihsan.vp@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toglelabs/typed-policy.git",
+    "directory": "packages/core"
+  },
+  "homepage": "https://github.com/toglelabs/typed-policy/tree/main/packages/core#readme",
+  "bugs": {
+    "url": "https://github.com/toglelabs/typed-policy/issues"
+  },
+  "keywords": ["typescript", "policy", "authorization", "type-safe", "dsl", "ast"],
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf dist",
+    "lint": "biome check src",
+    "format": "biome format --write src"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.5.0",
+    "typescript": "^5.3.0",
+    "tsup": "^8.0.0"
+  },
+  "peerDependencies": {},
+  "dependencies": {}
+}

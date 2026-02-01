@@ -1,0 +1,33 @@
+{
+  "name": "@typed-policy/examples-react",
+  "private": true,
+  "version": "0.1.0",
+  "description": "React example for Typed Policy",
+  "author": "Ihsan VP <m.ihsan.vp@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toglelabs/typed-policy.git",
+    "directory": "examples/react"
+  },
+  "homepage": "https://github.com/toglelabs/typed-policy/tree/main/examples/react#readme",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@typed-policy/core": "workspace:*",
+    "@typed-policy/eval": "workspace:*",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@vitejs/plugin-react": "^4.2.1",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.8"
+  }
+}

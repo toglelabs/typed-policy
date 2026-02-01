@@ -1,0 +1,35 @@
+{
+  "name": "@typed-policy/examples-hono-drizzle",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Hono + Drizzle full-stack example for Typed Policy",
+  "author": "Ihsan VP <m.ihsan.vp@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toglelabs/typed-policy.git",
+    "directory": "examples/hono-drizzle"
+  },
+  "homepage": "https://github.com/toglelabs/typed-policy/tree/main/examples/hono-drizzle#readme",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.7.0",
+    "@typed-policy/core": "workspace:*",
+    "@typed-policy/eval": "workspace:*",
+    "@typed-policy/drizzle": "workspace:*",
+    "hono": "^3.11.0",
+    "drizzle-orm": "^0.29.0",
+    "better-sqlite3": "^9.2.0"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^7.6.8",
+    "@types/node": "^20.10.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.0"
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "name": "@typed-policy/eval",
+  "version": "0.1.0",
+  "description": "Frontend policy evaluator",
+  "author": "Ihsan VP <m.ihsan.vp@gmail.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/toglelabs/typed-policy.git",
+    "directory": "packages/eval"
+  },
+  "homepage": "https://github.com/toglelabs/typed-policy/tree/main/packages/eval#readme",
+  "bugs": {
+    "url": "https://github.com/toglelabs/typed-policy/issues"
+  },
+  "keywords": ["typescript", "policy", "authorization", "evaluator", "frontend", "boolean"],
+  "type": "module",
+  "exports": {
+    ".": {
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "clean": "rm -rf dist",
+    "lint": "biome check src",
+    "format": "biome format --write src"
+  },
+  "dependencies": {
+    "@typed-policy/core": "workspace:*"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.5.0",
+    "typescript": "^5.3.0",
+    "tsup": "^8.0.0",
+    "vitest": "^1.0.0"
+  }
+}
