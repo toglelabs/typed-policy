@@ -18,18 +18,18 @@
     "start": "node dist/server.js"
   },
   "dependencies": {
-    "@hono/node-server": "^1.7.0",
+    "@hono/node-server": "^1.13.0",
     "@typed-policy/core": "workspace:*",
     "@typed-policy/eval": "workspace:*",
     "@typed-policy/drizzle": "workspace:*",
-    "hono": "^3.11.0",
-    "drizzle-orm": "^0.29.0",
-    "better-sqlite3": "^9.2.0"
+    "hono": "^4.6.0",
+    "drizzle-orm": "^0.38.0",
+    "better-sqlite3": "^11.0.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.8",
-    "@types/node": "^20.10.0",
-    "tsx": "^4.7.0",
-    "typescript": "^5.3.0"
+    "@types/better-sqlite3": "^7.6.12",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
   }
 }
