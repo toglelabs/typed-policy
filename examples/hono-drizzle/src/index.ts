@@ -36,12 +36,9 @@ app.get("/posts", async (c) => {
   const user = c.get("user");
   const actor: Actor = { user };
 
-  // v0.2 API: compileToDrizzle with actor and tables
-  const listCondition = compileToDrizzle<Subject, Actor>(postPolicy.actions.list, {
-    actor,
-    tables: {
-      post: posts.id, // Subject table mapping
-    },
+  // v0.2 API: compileToDrizzle(action, actor, tables)
+  const listCondition = compileToDrizzle<Subject, Actor>(postPolicy.actions.list, actor, {
+    post: posts.id, // Subject table mapping
   });
 
   const allPosts = await db.select().from(posts).where(listCondition);
@@ -71,8 +68,8 @@ app.get("/posts/:id", async (c) => {
     },
   };
 
-  // v0.2 API: evaluate with { actor, subject } context
-  const canRead = evaluate(postPolicy.actions.read, { actor, subject });
+  // v0.2 API: evaluate(action, actor, subject)
+  const canRead = evaluate(postPolicy.actions.read, actor, subject);
 
   if (!canRead) {
     return c.json({ error: "Forbidden" }, 403);
@@ -88,8 +85,8 @@ app.post("/posts", async (c) => {
     post: { id: "", ownerId: "", published: false },
   };
 
-  // v0.2 API: evaluate with { actor, subject }
-  const canCreate = evaluate(postPolicy.actions.create, { actor, subject });
+  // v0.2 API: evaluate(action, actor, subject)
+  const canCreate = evaluate(postPolicy.actions.create, actor, subject);
 
   if (!canCreate) {
     return c.json({ error: "Forbidden" }, 403);
@@ -132,8 +129,8 @@ app.delete("/posts/:id", async (c) => {
     },
   };
 
-  // v0.2 API: evaluate with { actor, subject }
-  const canDelete = evaluate(postPolicy.actions.delete, { actor, subject });
+  // v0.2 API: evaluate(action, actor, subject)
+  const canDelete = evaluate(postPolicy.actions.delete, actor, subject);
 
   if (!canDelete) {
     return c.json({ error: "Forbidden" }, 403);
@@ -153,7 +150,7 @@ app.post("/posts/:id/archive", async (c) => {
   };
 
   // This will always deny because archive action is `false` literal
-  const canArchive = evaluate(postPolicy.actions.archive, { actor, subject });
+  const canArchive = evaluate(postPolicy.actions.archive, actor, subject);
 
   if (!canArchive) {
     return c.json({ error: "Archive action is disabled" }, 403);

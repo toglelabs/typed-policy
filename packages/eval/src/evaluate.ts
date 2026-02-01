@@ -1,10 +1,8 @@
 import type { Expr } from "@typed-policy/core";
 
-type EvalContext<A, T> = {
-  actor: A;
-  subject: T;
-};
-
+/**
+ * Resolve a dot-notation path from an object
+ */
 function resolveValue(path: string, subject: unknown): unknown {
   const keys = path.split(".");
   let current: unknown = subject;
@@ -22,20 +20,41 @@ function resolveValue(path: string, subject: unknown): unknown {
   return current;
 }
 
+/**
+ * EvalContext passed to policy functions
+ * Functions ONLY receive actor - subject is accessed through DSL (eq, and, or)
+ */
+type EvalContext<A> = {
+  actor: A;
+};
+
+/**
+ * Evaluate a policy expression
+ *
+ * @param expr - The expression to evaluate (Expr, boolean, or function)
+ * @param actor - The actor context (user/requester)
+ * @param subject - The subject context (resource being accessed)
+ * @returns boolean result
+ *
+ * @example
+ * evaluate(policy.actions.read, { user: { id: "1", role: "admin" } }, { post: { published: true } });
+ */
 export function evaluate<T, A = unknown>(
-  expr: Expr<T, A> | boolean | ((ctx: EvalContext<A, T>) => boolean | Expr<T, A>),
-  ctx: EvalContext<A, T>,
+  expr: Expr<T, A> | boolean | ((ctx: EvalContext<A>) => boolean | Expr<T, A>),
+  actor: A,
+  subject: T,
 ): boolean {
   // Handle boolean literals directly
   if (typeof expr === "boolean") {
     return expr;
   }
 
-  // Handle function expressions
+  // Handle function expressions - functions ONLY receive { actor }
   if (typeof expr === "function") {
-    const result = expr(ctx as EvalContext<A, T>);
+    const fn = expr as (ctx: EvalContext<A>) => boolean | Expr<T, A>;
+    const result = fn({ actor });
     // Recursively evaluate if the function returns an Expr or boolean
-    return evaluate(result, ctx);
+    return evaluate(result as Expr<T, A> | boolean, actor, subject);
   }
 
   // Handle Expr objects
@@ -44,13 +63,13 @@ export function evaluate<T, A = unknown>(
       return expr.value;
     }
     case "function": {
-      const result = expr.fn(ctx as EvalContext<A, T>);
+      // Functions in Expr only receive { actor }
+      const result = (expr.fn as (ctx: { actor: A }) => boolean | Expr<T, A>)({ actor });
       // Recursively evaluate if the function returns an Expr or boolean
-      return evaluate(result, ctx);
+      return evaluate(result as Expr<T, A> | boolean, actor, subject);
     }
     case "eq": {
-      // Support both old context format (flat Record) and new format ({ actor, subject })
-      const subject = "subject" in ctx ? ctx.subject : ctx;
+      // Path resolution uses subject - DSL accesses subject data
       const leftValue = resolveValue(expr.left, subject);
       const rightValue =
         typeof expr.right === "string" && expr.right.includes(".")
@@ -59,10 +78,10 @@ export function evaluate<T, A = unknown>(
       return leftValue === rightValue;
     }
     case "and": {
-      return expr.rules.every((rule) => evaluate(rule, ctx));
+      return expr.rules.every((rule) => evaluate(rule, actor, subject));
     }
     case "or": {
-      return expr.rules.some((rule) => evaluate(rule, ctx));
+      return expr.rules.some((rule) => evaluate(rule, actor, subject));
     }
     default: {
       throw new Error(`Unknown expression kind: ${JSON.stringify(expr)}`);

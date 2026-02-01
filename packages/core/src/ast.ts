@@ -29,6 +29,6 @@ export type Expr<T, A = unknown> =
     }
   | {
       kind: "function";
-      fn: (ctx: { actor: A; subject: T }) => boolean | Expr<T, A>;
+      fn: (ctx: { actor: A }) => boolean | Expr<T, A>;
       description?: string;
     };

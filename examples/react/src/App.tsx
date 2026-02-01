@@ -21,12 +21,12 @@ function App() {
     },
   };
 
-  // v0.2 API: Pass actor and subject separately in context object
-  const canRead = evaluate(postPolicy.actions.read, { actor, subject });
-  const canWrite = evaluate(postPolicy.actions.write, { actor, subject });
-  const canDelete = evaluate(postPolicy.actions.delete, { actor, subject });
-  const alwaysAllow = evaluate(postPolicy.actions.alwaysAllow, { actor, subject });
-  const neverAllow = evaluate(postPolicy.actions.neverAllow, { actor, subject });
+  // v0.2 API: evaluate(action, actor, subject) - 3 separate parameters
+  const canRead = evaluate(postPolicy.actions.read, actor, subject);
+  const canWrite = evaluate(postPolicy.actions.write, actor, subject);
+  const canDelete = evaluate(postPolicy.actions.delete, actor, subject);
+  const alwaysAllow = evaluate(postPolicy.actions.alwaysAllow, actor, subject);
+  const neverAllow = evaluate(postPolicy.actions.neverAllow, actor, subject);
 
   return (
     <div className="app">
@@ -87,16 +87,19 @@ function App() {
         <h2>Policy Definition (v0.2 API)</h2>
         <pre>{`// Three policy styles:
 
-// 1. Functions: Pure functions with actor/subject
-read: ({ actor, subject }) => {
+// 1. Functions: Pure functions receive { actor } only
+//    Subject is accessed through DSL operators
+read: ({ actor }) => {
   if (actor.user.role === "admin") return true;
-  return subject.post.published || 
-         subject.post.ownerId === actor.user.id;
+  return or(
+    eq("post.published", true),
+    eq("post.ownerId", actor.user.id)
+  );
 }
 
 // 2. Declarative: Using DSL operators
 adminOnly: or(
-  eq("post.published", true), 
+  eq("post.published", true),
   eq("post.ownerId", "user.id")
 )
 
@@ -110,10 +113,11 @@ neverAllow: false`}</pre>
         <pre>{`const actor = { user: { id: "user-1", role: "user" } };
 const subject = { post: { id: "post-1", ownerId: "user-1", published: true } };
 
-// v0.2 API: Pass actor and subject separately
+// v0.2 API: evaluate(action, actor, subject)
 const canRead = evaluate(
-  postPolicy.actions.read, 
-  { actor, subject }
+  postPolicy.actions.read,
+  actor,
+  subject
 );`}</pre>
       </div>
     </div>

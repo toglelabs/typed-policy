@@ -22,189 +22,146 @@ describe("evaluate", () => {
   describe("eq", () => {
     it("should return true when values are equal", () => {
       const expr = eq<Subject, "post.published", Actor>("post.published", true);
-      const ctx = {
-        actor: { user: { id: "1", role: "admin" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(expr, ctx)).toBe(true);
+      const actor = { user: { id: "1", role: "admin" as const } };
+      const subject = { post: { id: "1", ownerId: "1", published: true } };
+      expect(evaluate(expr, actor, subject)).toBe(true);
     });
 
     it("should return false when values are not equal", () => {
       const expr = eq<Subject, "post.published", Actor>("post.published", true);
-      const ctx = {
-        actor: { user: { id: "1", role: "admin" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: false } },
-      };
-      expect(evaluate(expr, ctx)).toBe(false);
+      const actor = { user: { id: "1", role: "admin" as const } };
+      const subject = { post: { id: "1", ownerId: "1", published: false } };
+      expect(evaluate(expr, actor, subject)).toBe(false);
     });
 
     it("should compare two subject paths", () => {
       const expr = eq<Subject, "post.ownerId", Actor>("post.ownerId", "post.id");
-      const ctx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(expr, ctx)).toBe(true);
+      const actor = { user: { id: "1", role: "user" as const } };
+      const subject = { post: { id: "1", ownerId: "1", published: true } };
+      expect(evaluate(expr, actor, subject)).toBe(true);
     });
 
     it("should handle nested path comparison returning false", () => {
       const expr = eq<Subject, "post.ownerId", Actor>("post.ownerId", "post.id");
-      const ctx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "2", published: true } },
-      };
-      expect(evaluate(expr, ctx)).toBe(false);
+      const actor = { user: { id: "1", role: "user" as const } };
+      const subject = { post: { id: "1", ownerId: "2", published: true } };
+      expect(evaluate(expr, actor, subject)).toBe(false);
     });
   });
 
   describe("and", () => {
     it("should return true when all rules are true", () => {
       const expr = and<Subject, Actor>(eq("post.published", true), eq("post.ownerId", "1"));
-      const ctx = {
-        actor: { user: { id: "1", role: "admin" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(expr, ctx)).toBe(true);
+      const actor = { user: { id: "1", role: "admin" as const } };
+      const subject = { post: { id: "1", ownerId: "1", published: true } };
+      expect(evaluate(expr, actor, subject)).toBe(true);
     });
 
     it("should return false when any rule is false", () => {
       const expr = and<Subject, Actor>(eq("post.published", true), eq("post.ownerId", "1"));
-      const ctx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "2", published: true } },
-      };
-      expect(evaluate(expr, ctx)).toBe(false);
+      const actor = { user: { id: "1", role: "user" as const } };
+      const subject = { post: { id: "1", ownerId: "2", published: true } };
+      expect(evaluate(expr, actor, subject)).toBe(false);
     });
 
     it("should return true for empty and", () => {
       const expr = and<Subject, Actor>();
-      const ctx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(expr, ctx)).toBe(true);
+      const actor = { user: { id: "1", role: "user" as const } };
+      const subject = { post: { id: "1", ownerId: "1", published: true } };
+      expect(evaluate(expr, actor, subject)).toBe(true);
     });
   });
 
   describe("or", () => {
     it("should return true when any rule is true", () => {
       const expr = or<Subject, Actor>(eq("post.published", false), eq("post.ownerId", "1"));
-      const ctx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(expr, ctx)).toBe(true);
+      const actor = { user: { id: "1", role: "user" as const } };
+      const subject = { post: { id: "1", ownerId: "1", published: true } };
+      expect(evaluate(expr, actor, subject)).toBe(true);
     });
 
     it("should return false when all rules are false", () => {
       const expr = or<Subject, Actor>(eq("post.published", false), eq("post.ownerId", "2"));
-      const ctx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(expr, ctx)).toBe(false);
+      const actor = { user: { id: "1", role: "user" as const } };
+      const subject = { post: { id: "1", ownerId: "1", published: true } };
+      expect(evaluate(expr, actor, subject)).toBe(false);
     });
 
     it("should return false for empty or", () => {
       const expr = or<Subject, Actor>();
-      const ctx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(expr, ctx)).toBe(false);
+      const actor = { user: { id: "1", role: "user" as const } };
+      const subject = { post: { id: "1", ownerId: "1", published: true } };
+      expect(evaluate(expr, actor, subject)).toBe(false);
     });
   });
 
   describe("boolean literals", () => {
     it("should evaluate true literal", () => {
-      const ctx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(true, ctx)).toBe(true);
+      const actor = { user: { id: "1", role: "user" as const } };
+      const subject = { post: { id: "1", ownerId: "1", published: true } };
+      expect(evaluate(true, actor, subject)).toBe(true);
     });
 
     it("should evaluate false literal", () => {
-      const ctx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(false, ctx)).toBe(false);
+      const actor = { user: { id: "1", role: "user" as const } };
+      const subject = { post: { id: "1", ownerId: "1", published: true } };
+      expect(evaluate(false, actor, subject)).toBe(false);
     });
   });
 
   describe("function expressions", () => {
     it("should evaluate function returning boolean", () => {
       const fn = ({ actor }: { actor: Actor }) => actor.user.role === "admin";
-      const adminCtx = {
-        actor: { user: { id: "1", role: "admin" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(fn, adminCtx)).toBe(true);
+      const adminActor = { user: { id: "1", role: "admin" as const } };
+      const subject = { post: { id: "1", ownerId: "1", published: true } };
+      expect(evaluate(fn, adminActor, subject)).toBe(true);
 
-      const userCtx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(fn, userCtx)).toBe(false);
+      const userActor = { user: { id: "1", role: "user" as const } };
+      expect(evaluate(fn, userActor, subject)).toBe(false);
     });
 
     it("should evaluate function returning expression", () => {
-      const fn = ({ actor, subject }: { actor: Actor; subject: Subject }) => {
+      const fn = ({ actor }: { actor: Actor }) => {
         if (actor.user.role === "admin") return true;
-        return subject.post.ownerId === actor.user.id;
+        return eq<Subject, "post.ownerId", Actor>("post.ownerId", actor.user.id);
       };
 
-      const adminCtx = {
-        actor: { user: { id: "1", role: "admin" as const } },
-        subject: { post: { id: "1", ownerId: "2", published: true } },
-      };
-      expect(evaluate(fn, adminCtx)).toBe(true);
+      const adminActor = { user: { id: "1", role: "admin" as const } };
+      const subject = { post: { id: "1", ownerId: "2", published: true } };
+      expect(evaluate(fn, adminActor, subject)).toBe(true);
 
-      const ownerCtx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(fn, ownerCtx)).toBe(true);
+      const ownerActor = { user: { id: "1", role: "user" as const } };
+      const ownerSubject = { post: { id: "1", ownerId: "1", published: true } };
+      expect(evaluate(fn, ownerActor, ownerSubject)).toBe(true);
 
-      const otherCtx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "2", published: true } },
-      };
-      expect(evaluate(fn, otherCtx)).toBe(false);
+      const otherActor = { user: { id: "1", role: "user" as const } };
+      const otherSubject = { post: { id: "1", ownerId: "2", published: true } };
+      expect(evaluate(fn, otherActor, otherSubject)).toBe(false);
     });
 
     it("should evaluate nested functions", () => {
       const innerFn = ({ actor }: { actor: Actor }) => actor.user.role === "admin";
 
-      const outerFn = ({ actor, subject }: { actor: Actor; subject: Subject }) => {
+      const outerFn = ({ actor }: { actor: Actor }) => {
         if (innerFn({ actor })) return true;
-        return subject.post.ownerId === actor.user.id && subject.post.published;
+        return and<Subject, Actor>(eq("post.ownerId", actor.user.id), eq("post.published", true));
       };
 
-      const adminCtx = {
-        actor: { user: { id: "1", role: "admin" as const } },
-        subject: { post: { id: "1", ownerId: "2", published: false } },
-      };
-      expect(evaluate(outerFn, adminCtx)).toBe(true);
+      const adminActor = { user: { id: "1", role: "admin" as const } };
+      const adminSubject = { post: { id: "1", ownerId: "2", published: false } };
+      expect(evaluate(outerFn, adminActor, adminSubject)).toBe(true);
 
-      const ownerPublishedCtx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(outerFn, ownerPublishedCtx)).toBe(true);
+      const ownerPublishedActor = { user: { id: "1", role: "user" as const } };
+      const ownerPublishedSubject = { post: { id: "1", ownerId: "1", published: true } };
+      expect(evaluate(outerFn, ownerPublishedActor, ownerPublishedSubject)).toBe(true);
 
-      const ownerUnpublishedCtx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: false } },
-      };
-      expect(evaluate(outerFn, ownerUnpublishedCtx)).toBe(false);
+      const ownerUnpublishedActor = { user: { id: "1", role: "user" as const } };
+      const ownerUnpublishedSubject = { post: { id: "1", ownerId: "1", published: false } };
+      expect(evaluate(outerFn, ownerUnpublishedActor, ownerUnpublishedSubject)).toBe(false);
 
-      const otherCtx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "2", published: true } },
-      };
-      expect(evaluate(outerFn, otherCtx)).toBe(false);
+      const otherActor = { user: { id: "1", role: "user" as const } };
+      const otherSubject = { post: { id: "1", ownerId: "2", published: true } };
+      expect(evaluate(outerFn, otherActor, otherSubject)).toBe(false);
     });
   });
 
@@ -215,50 +172,35 @@ describe("evaluate", () => {
         and(eq("post.ownerId", "1"), eq("post.published", true)),
       );
 
-      const publishedCtx = {
-        actor: { user: { id: "2", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "2", published: true } },
-      };
-      expect(evaluate(expr, publishedCtx)).toBe(true);
+      const actor = { user: { id: "2", role: "user" as const } };
+      const publishedSubject = { post: { id: "1", ownerId: "2", published: true } };
+      expect(evaluate(expr, actor, publishedSubject)).toBe(true);
 
-      const ownerPublishedCtx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(expr, ownerPublishedCtx)).toBe(true);
+      const ownerActor = { user: { id: "1", role: "user" as const } };
+      const ownerPublishedSubject = { post: { id: "1", ownerId: "1", published: true } };
+      expect(evaluate(expr, ownerActor, ownerPublishedSubject)).toBe(true);
 
-      const unpublishedCtx = {
-        actor: { user: { id: "2", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "2", published: false } },
-      };
-      expect(evaluate(expr, unpublishedCtx)).toBe(false);
+      const unpublishedSubject = { post: { id: "1", ownerId: "2", published: false } };
+      expect(evaluate(expr, actor, unpublishedSubject)).toBe(false);
     });
 
     it("should evaluate policy with mixed declarative and function expressions", () => {
-      const fn = ({ actor, subject }: { actor: Actor; subject: Subject }) => {
-        return (
-          actor.user.role === "admin" ||
-          (subject.post.ownerId === actor.user.id && subject.post.published)
-        );
+      const fn = ({ actor }: { actor: Actor }) => {
+        if (actor.user.role === "admin") return true;
+        return and<Subject, Actor>(eq("post.ownerId", actor.user.id), eq("post.published", true));
       };
 
-      const adminCtx = {
-        actor: { user: { id: "1", role: "admin" as const } },
-        subject: { post: { id: "1", ownerId: "2", published: false } },
-      };
-      expect(evaluate(fn, adminCtx)).toBe(true);
+      const adminActor = { user: { id: "1", role: "admin" as const } };
+      const adminSubject = { post: { id: "1", ownerId: "2", published: false } };
+      expect(evaluate(fn, adminActor, adminSubject)).toBe(true);
 
-      const ownerCtx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "1", published: true } },
-      };
-      expect(evaluate(fn, ownerCtx)).toBe(true);
+      const ownerActor = { user: { id: "1", role: "user" as const } };
+      const ownerSubject = { post: { id: "1", ownerId: "1", published: true } };
+      expect(evaluate(fn, ownerActor, ownerSubject)).toBe(true);
 
-      const otherCtx = {
-        actor: { user: { id: "1", role: "user" as const } },
-        subject: { post: { id: "1", ownerId: "2", published: true } },
-      };
-      expect(evaluate(fn, otherCtx)).toBe(false);
+      const otherActor = { user: { id: "1", role: "user" as const } };
+      const otherSubject = { post: { id: "1", ownerId: "2", published: true } };
+      expect(evaluate(fn, otherActor, otherSubject)).toBe(false);
     });
   });
 });

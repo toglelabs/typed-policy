@@ -55,11 +55,21 @@ export type FullContext<A, S> = A & S;
 
 /**
  * Evaluation context passed to policy functions
- * Functions receive both actor and subject to make authorization decisions
+ * Functions ONLY receive actor - subject is accessed through DSL (eq, and, or)
+ * This ensures consistency between frontend and backend evaluation
  */
-export type EvalContext<A, S> = {
+export type EvalContext<A> = {
   /** The actor (user) making the request */
   actor: A;
-  /** The subject (resource) being accessed */
+};
+
+/**
+ * Full evaluation data including subject
+ * Used by evaluate() and compileToDrizzle() - separate from function context
+ */
+export type EvalData<A, S> = {
+  /** The actor (user) making the request */
+  actor: A;
+  /** The subject (resource) being accessed - for DSL evaluation */
   subject: S;
 };

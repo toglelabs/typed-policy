@@ -3,31 +3,24 @@ import type { AnyColumn, SQL } from "drizzle-orm";
 import { and as drizzleAnd, eq as drizzleEq, or as drizzleOr, sql } from "drizzle-orm";
 
 /** Policy action type - matches the type in policy.ts */
-type PolicyAction<T, A> = Expr<T, A> | boolean | ((ctx: EvalContext<A, T>) => boolean | Expr<T, A>);
+type PolicyAction<T, A> = Expr<T, A> | boolean | ((ctx: EvalContext<A>) => boolean | Expr<T, A>);
 
 export type TableMapping<T> = {
   [K in keyof T]?: AnyColumn;
-};
-
-export type CompileOptions<T, A = unknown> = {
-  /** The actor (user) making the request - used to resolve actor paths and execute functions */
-  actor: A;
-  /** Mapping from subject paths to Drizzle columns */
-  tables: TableMapping<T>;
 };
 
 /**
  * Get a Drizzle column from a subject path
  * Only subject paths (starting with a table key in tables) are allowed
  */
-function getColumnFromPath<T, A>(path: string, options: CompileOptions<T, A>): AnyColumn {
+function getColumnFromPath<T>(path: string, tables: TableMapping<T>): AnyColumn {
   const parts = path.split(".");
   const tableKey = parts[0] as keyof T;
-  const column = options.tables[tableKey];
+  const column = tables[tableKey];
 
   if (!column) {
     throw new Error(
-      `Cannot compile path "${path}" to SQL: "${String(tableKey)}" is not a subject table. Only subject paths (mapped in tables) are allowed in SQL compilation. Available subject tables: ${Object.keys(options.tables).join(", ")}`,
+      `Cannot compile path "${path}" to SQL: "${String(tableKey)}" is not a subject table. Only subject paths (mapped in tables) are allowed in SQL compilation. Available subject tables: ${Object.keys(tables).join(", ")}`,
     );
   }
 
@@ -35,13 +28,13 @@ function getColumnFromPath<T, A>(path: string, options: CompileOptions<T, A>): A
 }
 
 /**
- * Check if a path is an actor path (user.*, not a subject table)
+ * Check if a path is an actor path (not mapped as a subject table)
  */
-function isActorPath<T, A>(path: string, options: CompileOptions<T, A>): boolean {
+function isActorPath<T>(path: string, tables: TableMapping<T>): boolean {
   const parts = path.split(".");
   const tableKey = parts[0] as keyof T;
   // It's an actor path if it's not mapped as a subject table
-  return !(tableKey in options.tables);
+  return !(tableKey in tables);
 }
 
 /**
@@ -69,16 +62,17 @@ function getActorValueFromPath<A>(path: string, actor: A): unknown {
  */
 function resolveRightValue<T, A>(
   right: string | number | boolean | null | undefined,
-  options: CompileOptions<T, A>,
+  tables: TableMapping<T>,
+  actor: A,
 ): unknown {
   // If it's a string that looks like a path (contains dot)
   if (typeof right === "string" && right.includes(".")) {
     // Check if it's an actor path
-    if (isActorPath(right, options)) {
-      const value = getActorValueFromPath(right, options.actor);
+    if (isActorPath(right, tables)) {
+      const value = getActorValueFromPath(right, actor);
       if (value === undefined) {
         throw new Error(
-          `Actor value not found for path: ${right}. Ensure the path exists in the actor context provided to compile().`,
+          `Actor value not found for path: ${right}. Ensure the path exists in the actor object provided to compileToDrizzle().`,
         );
       }
       return value;
@@ -103,18 +97,18 @@ function resolveRightValue<T, A>(
  */
 export function compileToDrizzle<T, A>(
   action: PolicyAction<T, A>,
-  options: CompileOptions<T, A>,
+  actor: A,
+  tables: TableMapping<T>,
 ): SQL {
   // Handle boolean literals directly
   if (typeof action === "boolean") {
     return action ? sql`1 = 1` : sql`1 = 0`;
   }
 
-  // Handle function expressions - execute with actor context
+  // Handle function expressions - execute with actor context ONLY
   if (typeof action === "function") {
     const result = action({
-      actor: options.actor,
-      subject: {} as T,
+      actor,
     });
 
     // If the function returns a boolean, wrap it as SQL
@@ -123,17 +117,17 @@ export function compileToDrizzle<T, A>(
     }
 
     // Otherwise, compile the resulting expression
-    return compileExpr(result, options);
+    return compileExpr(result, tables, actor);
   }
 
   // Handle Expr objects
-  return compileExpr(action, options);
+  return compileExpr(action, tables, actor);
 }
 
 /**
  * Internal function to compile Expr AST nodes to SQL
  */
-function compileExpr<T, A>(expr: Expr<T, A>, options: CompileOptions<T, A>): SQL {
+function compileExpr<T, A>(expr: Expr<T, A>, tables: TableMapping<T>, actor: A): SQL {
   switch (expr.kind) {
     case "literal": {
       // Boolean literals: true -> 1 = 1, false -> 1 = 0
@@ -142,10 +136,14 @@ function compileExpr<T, A>(expr: Expr<T, A>, options: CompileOptions<T, A>): SQL
 
     case "eq": {
       // Left side must be a subject path (column reference)
-      const column = getColumnFromPath(expr.left, options);
+      const column = getColumnFromPath(expr.left, tables);
 
       // Right side can be an actor path (resolved to value) or a literal
-      const value = resolveRightValue(expr.right as string | number | boolean | null, options);
+      const value = resolveRightValue(
+        expr.right as string | number | boolean | null,
+        tables,
+        actor,
+      );
 
       return drizzleEq(column, value);
     }
@@ -155,7 +153,7 @@ function compileExpr<T, A>(expr: Expr<T, A>, options: CompileOptions<T, A>): SQL
         // Empty and() returns true
         return sql`1 = 1`;
       }
-      const conditions = expr.rules.map((rule) => compileExpr(rule, options));
+      const conditions = expr.rules.map((rule) => compileExpr(rule, tables, actor));
       const result = drizzleAnd(...conditions);
       return result || sql`1 = 1`;
     }
@@ -165,7 +163,7 @@ function compileExpr<T, A>(expr: Expr<T, A>, options: CompileOptions<T, A>): SQL
         // Empty or() returns false
         return sql`1 = 0`;
       }
-      const conditions = expr.rules.map((rule) => compileExpr(rule, options));
+      const conditions = expr.rules.map((rule) => compileExpr(rule, tables, actor));
       const result = drizzleOr(...conditions);
       return result || sql`1 = 0`;
     }
@@ -174,8 +172,7 @@ function compileExpr<T, A>(expr: Expr<T, A>, options: CompileOptions<T, A>): SQL
       // Execute the pure function with the actor context at compile time
       // to get the resulting expression, then compile that expression
       const result = expr.fn({
-        actor: options.actor,
-        subject: {} as T, // Subject is empty at compile time (will be queried)
+        actor,
       });
 
       // If the function returns a boolean, wrap it as a literal
@@ -184,7 +181,7 @@ function compileExpr<T, A>(expr: Expr<T, A>, options: CompileOptions<T, A>): SQL
       }
 
       // Otherwise, compile the resulting expression
-      return compileExpr(result, options);
+      return compileExpr(result, tables, actor);
     }
 
     default: {
@@ -199,12 +196,10 @@ function compileExpr<T, A>(expr: Expr<T, A>, options: CompileOptions<T, A>): SQL
  * @example
  * ```typescript
  * const expr = eq("post.published", true);
- * const sql = compile(expr, {
- *   actor: { user: { id: "123", role: "admin" } },
- *   tables: { post: postsTable.id }
- * });
+ * const sql = compile(expr, { user: { id: "123", role: "admin" } }, { post: postsTable.id });
  * ```
+ * @deprecated Use compileToDrizzle(action, actor, tables) instead
  */
-export function compile<T, A>(expr: Expr<T, A>, options: CompileOptions<T, A>): SQL {
-  return compileToDrizzle(expr, options);
+export function compile<T, A>(expr: Expr<T, A>, actor: A, tables: TableMapping<T>): SQL {
+  return compileToDrizzle(expr, actor, tables);
 }
