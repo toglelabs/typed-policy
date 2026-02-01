@@ -6,7 +6,14 @@ import { and as drizzleAnd, eq as drizzleEq, or as drizzleOr, sql } from "drizzl
 type PolicyAction<T, A> = Expr<T, A> | boolean | ((ctx: EvalContext<A>) => boolean | Expr<T, A>);
 
 export type TableMapping<T> = {
-  [K in keyof T]?: AnyColumn;
+  [K in keyof T]: {
+    [P in keyof T[K]]: AnyColumn;
+  };
+};
+
+export type CompileOptions<T, A> = {
+  actor: A;
+  tables: TableMapping<T>;
 };
 
 /**
@@ -16,11 +23,21 @@ export type TableMapping<T> = {
 function getColumnFromPath<T>(path: string, tables: TableMapping<T>): AnyColumn {
   const parts = path.split(".");
   const tableKey = parts[0] as keyof T;
-  const column = tables[tableKey];
+  const columnKey = parts[1] as keyof T[typeof tableKey];
+
+  const table = tables[tableKey];
+
+  if (!table) {
+    throw new Error(
+      `Cannot compile path "${path}" to SQL: "${String(tableKey)}" is not a subject table. Only subject paths (mapped in tables) are allowed in SQL compilation. Available subject tables: ${Object.keys(tables).join(", ")}`,
+    );
+  }
+
+  const column = table[columnKey];
 
   if (!column) {
     throw new Error(
-      `Cannot compile path "${path}" to SQL: "${String(tableKey)}" is not a subject table. Only subject paths (mapped in tables) are allowed in SQL compilation. Available subject tables: ${Object.keys(tables).join(", ")}`,
+      `Cannot compile path "${path}" to SQL: "${String(columnKey)}" is not a valid column on table "${String(tableKey)}". Available columns: ${Object.keys(table).join(", ")}`,
     );
   }
 
@@ -72,7 +89,7 @@ function resolveRightValue<T, A>(
       const value = getActorValueFromPath(right, actor);
       if (value === undefined) {
         throw new Error(
-          `Actor value not found for path: ${right}. Ensure the path exists in the actor object provided to compileToDrizzle().`,
+          `Actor value not found for path: ${right}. Ensure the path exists in the actor object provided to compile().`,
         );
       }
       return value;
@@ -89,17 +106,29 @@ function resolveRightValue<T, A>(
 }
 
 /**
- * Compile an expression to Drizzle SQL
+ * Compile a policy action to Drizzle SQL
  *
  * The key insight: since functions are pure, we execute them during compilation
  * with the provided actor context. This gives us the resulting expression,
  * which we then compile to SQL.
+ *
+ * @example
+ * ```typescript
+ * const listCondition = compile(postPolicy.actions.list, {
+ *   actor,
+ *   tables: {
+ *     post: {
+ *       id: posts.id,
+ *       ownerId: posts.ownerId,
+ *       published: posts.published
+ *     }
+ *   }
+ * });
+ * ```
  */
-export function compileToDrizzle<T, A>(
-  action: PolicyAction<T, A>,
-  actor: A,
-  tables: TableMapping<T>,
-): SQL {
+export function compile<T, A>(action: PolicyAction<T, A>, options: CompileOptions<T, A>): SQL {
+  const { actor, tables } = options;
+
   // Handle boolean literals directly
   if (typeof action === "boolean") {
     return action ? sql`1 = 1` : sql`1 = 0`;
@@ -188,18 +217,4 @@ function compileExpr<T, A>(expr: Expr<T, A>, tables: TableMapping<T>, actor: A):
       throw new Error(`Unknown expression kind: ${JSON.stringify(expr)}`);
     }
   }
-}
-
-/**
- * Compile a policy expression to Drizzle SQL
- *
- * @example
- * ```typescript
- * const expr = eq("post.published", true);
- * const sql = compile(expr, { user: { id: "123", role: "admin" } }, { post: postsTable.id });
- * ```
- * @deprecated Use compileToDrizzle(action, actor, tables) instead
- */
-export function compile<T, A>(expr: Expr<T, A>, actor: A, tables: TableMapping<T>): SQL {
-  return compileToDrizzle(expr, actor, tables);
 }

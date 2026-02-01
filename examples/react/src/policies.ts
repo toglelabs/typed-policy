@@ -1,6 +1,6 @@
 import { eq, or, policy } from "@typed-policy/core";
 
-// Separate types for Actor and Subject
+// Separate types for Actor and Resources
 export type Actor = {
   user: {
     id: string;
@@ -8,7 +8,7 @@ export type Actor = {
   };
 };
 
-export type Subject = {
+export type Resources = {
   post: {
     id: string;
     ownerId: string;
@@ -22,16 +22,16 @@ const canRead = ({ actor }: { actor: Actor }) => {
   // Functions can use actor data to return expressions or booleans
   if (actor.user.role === "admin") return true;
   // Return a declarative expression that references subject paths
-  return or<Subject, Actor>(eq("post.published", true), eq("post.ownerId", actor.user.id));
+  return or<Resources, Actor>(eq("post.published", true), eq("post.ownerId", actor.user.id));
 };
 
 const canWrite = ({ actor }: { actor: Actor }) => {
   if (actor.user.role === "admin") return true;
   // Return expression referencing both subject path and actor value
-  return eq<Subject, "post.ownerId", Actor>("post.ownerId", actor.user.id);
+  return eq<Resources, "post.ownerId", Actor>("post.ownerId", actor.user.id);
 };
 
-export const postPolicy = policy<Actor, Subject>({
+export const postPolicy = policy<Actor, Resources>({
   subject: "Post",
   actions: {
     // Function expressions - pure functions that receive { actor } only
@@ -39,7 +39,7 @@ export const postPolicy = policy<Actor, Subject>({
     write: canWrite,
     delete: ({ actor }) => {
       if (actor.user.role === "admin") return true;
-      return eq<Subject, "post.ownerId", Actor>("post.ownerId", actor.user.id);
+      return eq("post.ownerId", actor.user.id);
     },
     // Declarative expressions (using DSL operators)
     adminOnly: or(eq("post.published", true), eq("post.ownerId", "user.id")),
@@ -47,6 +47,6 @@ export const postPolicy = policy<Actor, Subject>({
     alwaysAllow: true,
     neverAllow: false,
     // Mixed: Function that returns declarative expression
-    ownerOnly: ({ actor }) => eq<Subject, "post.ownerId", Actor>("post.ownerId", actor.user.id),
+    ownerOnly: ({ actor }) => eq("post.ownerId", actor.user.id),
   },
 });

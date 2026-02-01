@@ -73,3 +73,19 @@ export type EvalData<A, S> = {
   /** The subject (resource) being accessed - for DSL evaluation */
   subject: S;
 };
+
+/**
+ * Resource mapping for nested resource structure in evaluate
+ * Maps resource types to their property types
+ *
+ * @example
+ * type PostMapping = ResourceMapping<{
+ *   post: { id: string; ownerId: string; published: boolean };
+ * }>;
+ * // Results in: { post: { id: string; ownerId: string; published: boolean } }
+ */
+export type ResourceMapping<T> = {
+  [K in keyof T]: {
+    [P in keyof T[K]]: T[K][P];
+  };
+};

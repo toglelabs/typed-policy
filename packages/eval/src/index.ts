@@ -1,1 +1,1 @@
-export { evaluate } from "./evaluate.js";
+export { evaluate, type ResourceMapping, type EvaluateOptions } from "./evaluate.js";

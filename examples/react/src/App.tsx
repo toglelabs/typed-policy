@@ -1,6 +1,6 @@
 import { evaluate } from "@typed-policy/eval";
 import { useState } from "react";
-import { postPolicy, type Actor, type Subject } from "./policies.js";
+import { postPolicy, type Actor, type Resources } from "./policies.js";
 import "./App.css";
 
 function App() {
@@ -13,7 +13,7 @@ function App() {
     user: { id: userId, role: userRole },
   };
 
-  const subject: Subject = {
+  const resources: Resources = {
     post: {
       id: "post-1",
       ownerId: postOwnerId,
@@ -21,12 +21,12 @@ function App() {
     },
   };
 
-  // v0.2 API: evaluate(action, actor, subject) - 3 separate parameters
-  const canRead = evaluate(postPolicy.actions.read, actor, subject);
-  const canWrite = evaluate(postPolicy.actions.write, actor, subject);
-  const canDelete = evaluate(postPolicy.actions.delete, actor, subject);
-  const alwaysAllow = evaluate(postPolicy.actions.alwaysAllow, actor, subject);
-  const neverAllow = evaluate(postPolicy.actions.neverAllow, actor, subject);
+  // v0.2 API: evaluate(action, { actor, resources }) - options object
+  const canRead = evaluate(postPolicy.actions.read, { actor, resources });
+  const canWrite = evaluate(postPolicy.actions.write, { actor, resources });
+  const canDelete = evaluate(postPolicy.actions.delete, { actor, resources });
+  const alwaysAllow = evaluate(postPolicy.actions.alwaysAllow, { actor, resources });
+  const neverAllow = evaluate(postPolicy.actions.neverAllow, { actor, resources });
 
   return (
     <div className="app">
@@ -49,7 +49,7 @@ function App() {
           <input type="text" value={userId} onChange={(e) => setUserId(e.target.value)} />
         </div>
 
-        <h2>Subject Context (Post)</h2>
+        <h2>Resources Context (Post)</h2>
         <div className="control-group">
           <label>Post Owner ID:</label>
           <input type="text" value={postOwnerId} onChange={(e) => setPostOwnerId(e.target.value)} />
@@ -111,13 +111,12 @@ neverAllow: false`}</pre>
       <div className="code-preview">
         <h2>Evaluate Usage</h2>
         <pre>{`const actor = { user: { id: "user-1", role: "user" } };
-const subject = { post: { id: "post-1", ownerId: "user-1", published: true } };
+const resources = { post: { id: "post-1", ownerId: "user-1", published: true } };
 
-// v0.2 API: evaluate(action, actor, subject)
+// v0.2 API: evaluate(action, { actor, resources })
 const canRead = evaluate(
   postPolicy.actions.read,
-  actor,
-  subject
+  { actor, resources }
 );`}</pre>
       </div>
     </div>

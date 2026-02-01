@@ -16,6 +16,8 @@ export type Subject = {
   };
 };
 
+export type Resources = Subject;
+
 export const postPolicy = policy<Actor, Subject>({
   subject: "Post",
   actions: {

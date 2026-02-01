@@ -1,10 +1,10 @@
-import { compileToDrizzle } from "@typed-policy/drizzle";
+import { compile } from "@typed-policy/drizzle";
 import { evaluate } from "@typed-policy/eval";
 import { eq } from "drizzle-orm";
 import { Hono } from "hono";
 import type { Context, Next } from "hono";
 import { db, posts } from "./db.js";
-import { type Actor, type Subject, postPolicy } from "./policies.js";
+import { type Actor, type Resources, postPolicy } from "./policies.js";
 
 type Variables = {
   user: Actor["user"];
@@ -36,9 +36,16 @@ app.get("/posts", async (c) => {
   const user = c.get("user");
   const actor: Actor = { user };
 
-  // v0.2 API: compileToDrizzle(action, actor, tables)
-  const listCondition = compileToDrizzle<Subject, Actor>(postPolicy.actions.list, actor, {
-    post: posts.id, // Subject table mapping
+  // v0.2 API: compile(action, { actor, tables })
+  const listCondition = compile(postPolicy.actions.list, {
+    actor,
+    tables: {
+      post: {
+        id: posts.id,
+        ownerId: posts.ownerId,
+        published: posts.published,
+      },
+    },
   });
 
   const allPosts = await db.select().from(posts).where(listCondition);
@@ -60,7 +67,7 @@ app.get("/posts/:id", async (c) => {
     return c.json({ error: "Post not found" }, 404);
   }
 
-  const subject: Subject = {
+  const resources: Resources = {
     post: {
       id: post.id,
       ownerId: post.ownerId,
@@ -68,8 +75,8 @@ app.get("/posts/:id", async (c) => {
     },
   };
 
-  // v0.2 API: evaluate(action, actor, subject)
-  const canRead = evaluate(postPolicy.actions.read, actor, subject);
+  // v0.2 API: evaluate(action, { actor, resources })
+  const canRead = evaluate(postPolicy.actions.read, { actor, resources });
 
   if (!canRead) {
     return c.json({ error: "Forbidden" }, 403);
@@ -81,12 +88,12 @@ app.get("/posts/:id", async (c) => {
 app.post("/posts", async (c) => {
   const user = c.get("user");
   const actor: Actor = { user };
-  const subject: Subject = {
+  const resources: Resources = {
     post: { id: "", ownerId: "", published: false },
   };
 
-  // v0.2 API: evaluate(action, actor, subject)
-  const canCreate = evaluate(postPolicy.actions.create, actor, subject);
+  // v0.2 API: evaluate(action, { actor, resources })
+  const canCreate = evaluate(postPolicy.actions.create, { actor, resources });
 
   if (!canCreate) {
     return c.json({ error: "Forbidden" }, 403);
@@ -121,7 +128,7 @@ app.delete("/posts/:id", async (c) => {
     return c.json({ error: "Post not found" }, 404);
   }
 
-  const subject: Subject = {
+  const resources: Resources = {
     post: {
       id: post.id,
       ownerId: post.ownerId,
@@ -129,8 +136,8 @@ app.delete("/posts/:id", async (c) => {
     },
   };
 
-  // v0.2 API: evaluate(action, actor, subject)
-  const canDelete = evaluate(postPolicy.actions.delete, actor, subject);
+  // v0.2 API: evaluate(action, { actor, resources })
+  const canDelete = evaluate(postPolicy.actions.delete, { actor, resources });
 
   if (!canDelete) {
     return c.json({ error: "Forbidden" }, 403);
@@ -145,12 +152,12 @@ app.delete("/posts/:id", async (c) => {
 app.post("/posts/:id/archive", async (c) => {
   const user = c.get("user");
   const actor: Actor = { user };
-  const subject: Subject = {
+  const resources: Resources = {
     post: { id: "", ownerId: "", published: false },
   };
 
   // This will always deny because archive action is `false` literal
-  const canArchive = evaluate(postPolicy.actions.archive, actor, subject);
+  const canArchive = evaluate(postPolicy.actions.archive, { actor, resources });
 
   if (!canArchive) {
     return c.json({ error: "Archive action is disabled" }, 403);
