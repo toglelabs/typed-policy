@@ -7,6 +7,87 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2024-02-02
+
+### Added
+
+#### String & Collection Operators
+- `startsWith(path, prefix)` - Check if string starts with prefix
+- `endsWith(path, suffix)` - Check if string ends with suffix
+- `contains(path, value)` - Check if string contains substring or array contains value
+
+#### Advanced Operators
+- `between(path, min, max)` - Check if value is within range (inclusive)
+- `matches(path, pattern, flags?)` - Check if string matches regex pattern
+
+#### Cross-Table Operations (Compile-Only)
+- `exists(table, conditions)` - Check if related record exists
+- `count(table, conditions)` - Count related records
+- `hasMany(table, conditions, minCount?)` - Check for multiple related records
+
+#### Multi-Tenancy Helpers
+- `tenantScoped(path)` - Automatic tenant isolation
+- `belongsToTenant(actorPath, subjectPath)` - Explicit tenant comparison
+
+#### Policy Composition
+- `extend(basePolicy, extension)` - Extend base policy with AND-merge for overlaps
+- `andPolicies(policies[])` - Combine policies with AND logic
+- `orPolicies(policies[])` - Combine policies with OR logic
+
+#### API Enhancements
+- Added `relatedTables` option to `compile()` for cross-table operations
+- Exported `CrossTableConditions` type
+- Exported `Policy` type alias
+
+### Changed
+
+- Enhanced `compile()` to support cross-table SQL generation with subqueries
+- Updated `evaluate()` to throw descriptive errors for compile-only operators
+
+### Documentation
+- Comprehensive README updates with v0.4 features
+- Added [MIGRATION_v0.3_to_v0.4.md](./MIGRATION_v0.3_to_v0.4.md)
+- Added [MIGRATION_v0.2_to_v0.3.md](./MIGRATION_v0.2_to_v0.3.md)
+- Added real-world examples (SaaS, e-commerce, content management)
+
+### Testing
+- Added 26 new tests for v0.4 operators
+- Total: 77 tests, all passing
+- Full coverage for all new features
+
+## [0.3.0] - 2024-02-02
+
+### Added
+
+#### Comparison Operators
+- `neq(left, right)` - Not equal comparison
+- `gt(left, right)` - Greater than comparison
+- `lt(left, right)` - Less than comparison
+- `gte(left, right)` - Greater than or equal comparison
+- `lte(left, right)` - Less than or equal comparison
+
+#### Logical Operator
+- `not(expr)` - Negation of an expression
+
+#### Collection Operator
+- `inArray(path, values[])` - Check if value is in array
+
+#### Null Check Operators
+- `isNull(path)` - Check if value is null
+- `isNotNull(path)` - Check if value is not null
+
+### Changed
+
+- **Note:** The `in` operator mentioned in v0.2 roadmap was renamed to `inArray` for clarity
+
+### Documentation
+- Updated README with v0.3 features and examples
+- Added practical examples for age-gated content, document management, e-commerce
+
+### Testing
+- Added 30+ new tests for v0.3 operators
+- Total: 51 tests, all passing
+
 ## [0.2.0] - 2024-02-01
 
 ### Added
@@ -74,6 +155,8 @@ Quick migration summary:
 - Framework-agnostic design
 - Full TypeScript support
 
-[unreleased]: https://github.com/toglelabs/typed-policy/compare/v0.2.0...HEAD
+[unreleased]: https://github.com/toglelabs/typed-policy/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/toglelabs/typed-policy/releases/tag/v0.4.0
+[0.3.0]: https://github.com/toglelabs/typed-policy/releases/tag/v0.3.0
 [0.2.0]: https://github.com/toglelabs/typed-policy/releases/tag/v0.2.0
 [0.1.0]: https://github.com/toglelabs/typed-policy/releases/tag/v0.1.0
