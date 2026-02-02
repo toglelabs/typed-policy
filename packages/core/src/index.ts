@@ -1,6 +1,6 @@
 export type { Path, Primitive } from "./paths.js";
 export type { PathValue, PolicyContext } from "./types.js";
-export type { Expr } from "./ast.js";
+export type { Expr, CrossTableConditions } from "./ast.js";
 export type {
   ActorContext,
   SubjectContext,
@@ -18,12 +18,22 @@ export {
   inArray,
   isNull,
   isNotNull,
+  startsWith,
+  endsWith,
+  contains,
+  between,
+  matches,
+  exists,
+  count,
+  hasMany,
+  tenantScoped,
+  belongsToTenant,
   not,
   and,
   or,
 } from "./operators.js";
-export { policy } from "./policy.js";
-export type { PolicyConfig } from "./policy.js";
+export { policy, extend, andPolicies, orPolicies } from "./policy.js";
+export type { PolicyConfig, Policy } from "./policy.js";
 export type {
   UnionToIntersection,
   ExprPaths,

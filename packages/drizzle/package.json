@@ -1,6 +1,6 @@
 {
   "name": "@typed-policy/drizzle",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Drizzle ORM SQL compiler for typed policies",
   "author": "Ihsan VP <m.ihsan.vp@gmail.com>",
   "license": "MIT",

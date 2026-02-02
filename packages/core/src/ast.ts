@@ -1,6 +1,11 @@
 import type { Path, PathValue } from "./types.js";
 
 /**
+ * Conditions for cross-table operations
+ */
+export type CrossTableConditions = Record<string, string | number | boolean | null>;
+
+/**
  * Expression AST type
  *
  * T = Subject context type (paths reference this)
@@ -52,6 +57,58 @@ export type Expr<T, A = unknown> =
   | {
       kind: "isNotNull";
       path: Path<T>;
+    }
+  | {
+      kind: "startsWith";
+      path: Path<T>;
+      prefix: string;
+    }
+  | {
+      kind: "endsWith";
+      path: Path<T>;
+      suffix: string;
+    }
+  | {
+      kind: "contains";
+      path: Path<T>;
+      value: string;
+    }
+  | {
+      kind: "between";
+      path: Path<T>;
+      min: Path<T> | PathValue<T, Path<T>>;
+      max: Path<T> | PathValue<T, Path<T>>;
+    }
+  | {
+      kind: "matches";
+      path: Path<T>;
+      pattern: string; // Store as string, compile to RegExp
+      flags?: string;
+    }
+  | {
+      kind: "exists";
+      table: string;
+      conditions: CrossTableConditions;
+    }
+  | {
+      kind: "count";
+      table: string;
+      conditions: CrossTableConditions;
+    }
+  | {
+      kind: "hasMany";
+      table: string;
+      conditions: CrossTableConditions;
+      minCount?: number; // Default: 2
+    }
+  | {
+      kind: "tenantScoped";
+      path: Path<T>;
+    }
+  | {
+      kind: "belongsToTenant";
+      actorPath: string; // e.g., "user.organizationId"
+      subjectPath: Path<T>; // e.g., "post.organizationId"
     }
   | {
       kind: "not";

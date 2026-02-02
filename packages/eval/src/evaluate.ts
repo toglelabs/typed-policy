@@ -174,6 +174,82 @@ export function evaluate<T, A = unknown>(
       const pathValue = resolveValue(expr.path, resources, actor);
       return pathValue !== null;
     }
+    case "startsWith": {
+      const pathValue = resolveValue(expr.path, resources, actor);
+      if (typeof pathValue !== "string") return false;
+      return pathValue.startsWith(expr.prefix);
+    }
+    case "endsWith": {
+      const pathValue = resolveValue(expr.path, resources, actor);
+      if (typeof pathValue !== "string") return false;
+      return pathValue.endsWith(expr.suffix);
+    }
+    case "contains": {
+      const pathValue = resolveValue(expr.path, resources, actor);
+      if (typeof pathValue === "string") {
+        return pathValue.includes(expr.value);
+      }
+      if (Array.isArray(pathValue)) {
+        return pathValue.includes(expr.value);
+      }
+      return false;
+    }
+    case "between": {
+      const pathValue = resolveValue(expr.path, resources, actor);
+      const minValue =
+        typeof expr.min === "string" && expr.min.includes(".")
+          ? resolveValue(expr.min, resources, actor)
+          : expr.min;
+      const maxValue =
+        typeof expr.max === "string" && expr.max.includes(".")
+          ? resolveValue(expr.max, resources, actor)
+          : expr.max;
+      if (pathValue == null || minValue == null || maxValue == null) return false;
+      return pathValue >= minValue && pathValue <= maxValue;
+    }
+    case "matches": {
+      const pathValue = resolveValue(expr.path, resources, actor);
+      if (typeof pathValue !== "string") return false;
+      const regex = new RegExp(expr.pattern, expr.flags);
+      return regex.test(pathValue);
+    }
+    case "exists": {
+      throw new Error(
+        "exists() operator is compile-only and cannot be evaluated on the frontend. " +
+          "Use compile() from @typed-policy/drizzle to generate SQL.",
+      );
+    }
+    case "count": {
+      throw new Error(
+        "count() operator is compile-only and cannot be evaluated on the frontend. " +
+          "Use compile() from @typed-policy/drizzle to generate SQL.",
+      );
+    }
+    case "hasMany": {
+      throw new Error(
+        "hasMany() operator is compile-only and cannot be evaluated on the frontend. " +
+          "Use compile() from @typed-policy/drizzle to generate SQL.",
+      );
+    }
+    case "tenantScoped": {
+      // tenantScoped("post.organizationId") means post.organizationId must match actor's organization
+      // This requires the actor to have an organizationId field
+      const subjectValue = resolveValue(expr.path, resources, actor);
+      // Extract the field name from the path (e.g., "post.organizationId" -> "organizationId")
+      const pathParts = expr.path.split(".");
+      const fieldName = pathParts[pathParts.length - 1];
+      // Try to find the corresponding actor field
+      const actorPath = `user.${fieldName}`;
+      const actorValue = resolveValue(actorPath, resources, actor);
+      if (subjectValue == null || actorValue == null) return false;
+      return subjectValue === actorValue;
+    }
+    case "belongsToTenant": {
+      const actorValue = resolveValue(expr.actorPath, resources, actor);
+      const subjectValue = resolveValue(expr.subjectPath, resources, actor);
+      if (actorValue == null || subjectValue == null) return false;
+      return actorValue === subjectValue;
+    }
     case "not": {
       return !evaluate(expr.expr, { actor, resources });
     }

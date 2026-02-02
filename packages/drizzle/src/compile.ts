@@ -2,12 +2,14 @@ import type { EvalContext, Expr } from "@typed-policy/core";
 import type { AnyColumn, SQL } from "drizzle-orm";
 import {
   and as drizzleAnd,
+  between as drizzleBetween,
   eq as drizzleEq,
   gt as drizzleGt,
   gte as drizzleGte,
   inArray as drizzleInArray,
   isNotNull as drizzleIsNotNull,
   isNull as drizzleIsNull,
+  like as drizzleLike,
   lt as drizzleLt,
   lte as drizzleLte,
   ne as drizzleNe,
@@ -18,15 +20,22 @@ import {
 /** Policy action type - matches the type in policy.ts */
 type PolicyAction<T, A> = Expr<T, A> | boolean | ((ctx: EvalContext<A>) => boolean | Expr<T, A>);
 
+/** Mapping of subject tables to their columns */
 export type TableMapping<T> = {
   [K in keyof T]: {
     [P in keyof T[K]]: AnyColumn;
   };
 };
 
+/** Mapping of related tables for cross-table operations */
+export type RelatedTableMapping = {
+  [tableName: string]: Record<string, AnyColumn>;
+};
+
 export type CompileOptions<T, A> = {
   actor: A;
   tables: TableMapping<T>;
+  relatedTables?: RelatedTableMapping;
 };
 
 /**
@@ -159,17 +168,22 @@ export function compile<T, A>(action: PolicyAction<T, A>, options: CompileOption
     }
 
     // Otherwise, compile the resulting expression
-    return compileExpr(result, tables, actor);
+    return compileExpr(result, tables, actor, options.relatedTables);
   }
 
   // Handle Expr objects
-  return compileExpr(action, tables, actor);
+  return compileExpr(action, tables, actor, options.relatedTables);
 }
 
 /**
  * Internal function to compile Expr AST nodes to SQL
  */
-function compileExpr<T, A>(expr: Expr<T, A>, tables: TableMapping<T>, actor: A): SQL {
+function compileExpr<T, A>(
+  expr: Expr<T, A>,
+  tables: TableMapping<T>,
+  actor: A,
+  relatedTables?: RelatedTableMapping,
+): SQL {
   switch (expr.kind) {
     case "literal": {
       // Boolean literals: true -> 1 = 1, false -> 1 = 0
@@ -255,8 +269,196 @@ function compileExpr<T, A>(expr: Expr<T, A>, tables: TableMapping<T>, actor: A):
       return drizzleIsNotNull(column);
     }
 
+    case "startsWith": {
+      const column = getColumnFromPath(expr.path, tables);
+      return drizzleLike(column, `${expr.prefix}%`);
+    }
+
+    case "endsWith": {
+      const column = getColumnFromPath(expr.path, tables);
+      return drizzleLike(column, `%${expr.suffix}`);
+    }
+
+    case "contains": {
+      const column = getColumnFromPath(expr.path, tables);
+      return drizzleLike(column, `%${expr.value}%`);
+    }
+
+    case "between": {
+      const column = getColumnFromPath(expr.path, tables);
+      const minValue = resolveRightValue(
+        expr.min as string | number | boolean | null,
+        tables,
+        actor,
+      );
+      const maxValue = resolveRightValue(
+        expr.max as string | number | boolean | null,
+        tables,
+        actor,
+      );
+      return drizzleBetween(column, minValue, maxValue);
+    }
+
+    case "matches": {
+      const column = getColumnFromPath(expr.path, tables);
+      // Convert JS RegExp pattern to SQL pattern (simplified)
+      // For complex patterns, this is an approximation
+      const sqlPattern = expr.pattern
+        .replace(/\\d/g, "[0-9]")
+        .replace(/\\w/g, "[a-zA-Z0-9_]")
+        .replace(/\\s/g, " ")
+        .replace(/\.\*/g, "%")
+        .replace(/\./g, "_");
+      return drizzleLike(column, sqlPattern);
+    }
+
+    case "exists": {
+      if (!relatedTables) {
+        throw new Error(
+          "exists() operator requires relatedTables in compile options. " +
+            "Provide the related table schema to enable cross-table queries.",
+        );
+      }
+
+      const relatedTable = relatedTables[expr.table];
+      if (!relatedTable) {
+        throw new Error(
+          `Related table "${expr.table}" not found in relatedTables mapping. ` +
+            `Available tables: ${Object.keys(relatedTables).join(", ")}`,
+        );
+      }
+
+      // Build EXISTS subquery
+      // Note: This is a simplified version. Full implementation would require
+      // access to the actual Drizzle table definitions.
+      const conditions = Object.entries(expr.conditions).map(([key, value]) => {
+        const column = relatedTable[key];
+        if (!column) {
+          throw new Error(`Column "${key}" not found in related table "${expr.table}"`);
+        }
+
+        // If value looks like a path, resolve it
+        if (typeof value === "string" && value.includes(".")) {
+          const resolvedValue = isActorPath(value, tables)
+            ? getActorValueFromPath(value, actor)
+            : value; // Subject path - needs correlation
+          return drizzleEq(column, resolvedValue);
+        }
+
+        return drizzleEq(column, value);
+      });
+
+      // Return EXISTS with subquery using sql template
+      const subqueryWhere = conditions.length === 1 ? conditions[0] : drizzleAnd(...conditions);
+      return sql`EXISTS (SELECT 1 FROM "${sql.raw(expr.table)}" WHERE ${subqueryWhere})`;
+    }
+
+    case "count": {
+      if (!relatedTables) {
+        throw new Error(
+          "count() operator requires relatedTables in compile options. " +
+            "Provide the related table schema to enable cross-table queries.",
+        );
+      }
+
+      const relatedTable = relatedTables[expr.table];
+      if (!relatedTable) {
+        throw new Error(
+          `Related table "${expr.table}" not found in relatedTables mapping. ` +
+            `Available tables: ${Object.keys(relatedTables).join(", ")}`,
+        );
+      }
+
+      // Build COUNT subquery
+      const conditions = Object.entries(expr.conditions).map(([key, value]) => {
+        const column = relatedTable[key];
+        if (!column) {
+          throw new Error(`Column "${key}" not found in related table "${expr.table}"`);
+        }
+
+        if (typeof value === "string" && value.includes(".")) {
+          const resolvedValue = isActorPath(value, tables)
+            ? getActorValueFromPath(value, actor)
+            : value;
+          return drizzleEq(column, resolvedValue);
+        }
+
+        return drizzleEq(column, value);
+      });
+
+      const subqueryWhere = conditions.length === 1 ? conditions[0] : drizzleAnd(...conditions);
+      return sql`(SELECT count(*) FROM "${sql.raw(expr.table)}" WHERE ${subqueryWhere})`;
+    }
+
+    case "hasMany": {
+      if (!relatedTables) {
+        throw new Error(
+          "hasMany() operator requires relatedTables in compile options. " +
+            "Provide the related table schema to enable cross-table queries.",
+        );
+      }
+
+      const relatedTable = relatedTables[expr.table];
+      if (!relatedTable) {
+        throw new Error(
+          `Related table "${expr.table}" not found in relatedTables mapping. ` +
+            `Available tables: ${Object.keys(relatedTables).join(", ")}`,
+        );
+      }
+
+      // Build COUNT subquery and compare against minCount
+      const conditions = Object.entries(expr.conditions).map(([key, value]) => {
+        const column = relatedTable[key];
+        if (!column) {
+          throw new Error(`Column "${key}" not found in related table "${expr.table}"`);
+        }
+
+        if (typeof value === "string" && value.includes(".")) {
+          const resolvedValue = isActorPath(value, tables)
+            ? getActorValueFromPath(value, actor)
+            : value;
+          return drizzleEq(column, resolvedValue);
+        }
+
+        return drizzleEq(column, value);
+      });
+
+      const minCount = expr.minCount ?? 2;
+      const subqueryWhere = conditions.length === 1 ? conditions[0] : drizzleAnd(...conditions);
+      return sql`(SELECT count(*) FROM "${sql.raw(expr.table)}" WHERE ${subqueryWhere}) >= ${minCount}`;
+    }
+
+    case "tenantScoped": {
+      const column = getColumnFromPath(expr.path, tables);
+      // Extract the field name from the path (e.g., "post.organizationId" -> "organizationId")
+      const pathParts = expr.path.split(".");
+      const fieldName = pathParts[pathParts.length - 1];
+      // Assume actor has the same field (e.g., "user.organizationId")
+      const actorPath = `user.${fieldName}`;
+      const actorValue = getActorValueFromPath(actorPath, actor);
+
+      if (actorValue === undefined) {
+        throw new Error(
+          `tenantScoped() requires actor to have field "${fieldName}" at path "${actorPath}"`,
+        );
+      }
+
+      return drizzleEq(column, actorValue);
+    }
+
+    case "belongsToTenant": {
+      const actorValue = getActorValueFromPath(expr.actorPath, actor);
+      const subjectColumn = getColumnFromPath(expr.subjectPath, tables);
+
+      if (actorValue === undefined) {
+        throw new Error(`belongsToTenant() requires actor value at path "${expr.actorPath}"`);
+      }
+
+      return drizzleEq(subjectColumn, actorValue);
+    }
+
     case "not": {
-      const innerCondition = compileExpr(expr.expr, tables, actor);
+      const innerCondition = compileExpr(expr.expr, tables, actor, relatedTables);
       return sql`NOT (${innerCondition})`;
     }
 
@@ -265,7 +467,7 @@ function compileExpr<T, A>(expr: Expr<T, A>, tables: TableMapping<T>, actor: A):
         // Empty and() returns true
         return sql`1 = 1`;
       }
-      const conditions = expr.rules.map((rule) => compileExpr(rule, tables, actor));
+      const conditions = expr.rules.map((rule) => compileExpr(rule, tables, actor, relatedTables));
       const result = drizzleAnd(...conditions);
       return result || sql`1 = 1`;
     }
@@ -275,7 +477,7 @@ function compileExpr<T, A>(expr: Expr<T, A>, tables: TableMapping<T>, actor: A):
         // Empty or() returns false
         return sql`1 = 0`;
       }
-      const conditions = expr.rules.map((rule) => compileExpr(rule, tables, actor));
+      const conditions = expr.rules.map((rule) => compileExpr(rule, tables, actor, relatedTables));
       const result = drizzleOr(...conditions);
       return result || sql`1 = 0`;
     }
@@ -293,7 +495,7 @@ function compileExpr<T, A>(expr: Expr<T, A>, tables: TableMapping<T>, actor: A):
       }
 
       // Otherwise, compile the resulting expression
-      return compileExpr(result, tables, actor);
+      return compileExpr(result, tables, actor, relatedTables);
     }
 
     default: {

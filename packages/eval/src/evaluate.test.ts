@@ -1,16 +1,30 @@
 import {
   and,
+  andPolicies,
+  belongsToTenant,
+  between,
+  contains,
+  count,
+  endsWith,
   eq,
+  exists,
+  extend,
   gt,
   gte,
+  hasMany,
   inArray,
   isNotNull,
   isNull,
   lt,
   lte,
+  matches,
   neq,
   not,
   or,
+  orPolicies,
+  policy,
+  startsWith,
+  tenantScoped,
 } from "@typed-policy/core";
 import { describe, expect, it } from "vitest";
 import { evaluate } from "./evaluate.js";
@@ -1333,6 +1347,711 @@ describe("evaluate", () => {
         },
       };
       expect(evaluate(expr, { actor, resources: jan1Post })).toBe(true);
+    });
+  });
+
+  describe("startsWith", () => {
+    it("should return true when string starts with prefix", () => {
+      const expr = startsWith<Resources, "post.id", Actor>("post.id", "1");
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "123",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(true);
+    });
+
+    it("should return false when string doesn't start with prefix", () => {
+      const expr = startsWith<Resources, "post.id", Actor>("post.id", "999");
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "123",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(false);
+    });
+
+    it("should return false for non-string values", () => {
+      const expr = startsWith<Resources, "post.score", Actor>("post.score" as never, "1");
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 100,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(false);
+    });
+  });
+
+  describe("endsWith", () => {
+    it("should return true when string ends with suffix", () => {
+      const expr = endsWith<Resources, "post.id", Actor>("post.id", "23");
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "123",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(true);
+    });
+
+    it("should return false when string doesn't end with suffix", () => {
+      const expr = endsWith<Resources, "post.id", Actor>("post.id", "999");
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "123",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(false);
+    });
+
+    it("should return false for non-string values", () => {
+      const expr = endsWith<Resources, "post.score", Actor>("post.score" as never, "0");
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 100,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(false);
+    });
+  });
+
+  describe("contains", () => {
+    it("should return true when string contains substring", () => {
+      const expr = contains<Resources, "post.status", Actor>("post.status", "publish");
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(true);
+    });
+
+    it("should return false when string doesn't contain substring", () => {
+      const expr = contains<Resources, "post.status", Actor>("post.status", "deleted");
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(false);
+    });
+
+    it("should return false for non-string values", () => {
+      const expr = contains<Resources, "post.score", Actor>("post.score" as never, "0");
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 100,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(false);
+    });
+  });
+
+  describe("between", () => {
+    it("should return true when value is between min and max (inclusive)", () => {
+      const expr = between<Resources, "post.score", Actor>("post.score", 0, 100);
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 50,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(true);
+    });
+
+    it("should return true when value equals min", () => {
+      const expr = between<Resources, "post.score", Actor>("post.score", 0, 100);
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(true);
+    });
+
+    it("should return true when value equals max", () => {
+      const expr = between<Resources, "post.score", Actor>("post.score", 0, 100);
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 100,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(true);
+    });
+
+    it("should return false when value is outside range", () => {
+      const expr = between<Resources, "post.score", Actor>("post.score", 0, 100);
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 101,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(false);
+    });
+
+    it("should return false for null values", () => {
+      const expr = between<Resources, "post.deletedAt", Actor>(
+        "post.deletedAt" as never,
+        "2024-01-01",
+        "2024-12-31",
+      );
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(false);
+    });
+  });
+
+  describe("matches", () => {
+    it("should return true when string matches pattern", () => {
+      const expr = matches<Resources, "post.id", Actor>("post.id", /^\d+$/);
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "12345",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(true);
+    });
+
+    it("should return false when string doesn't match pattern", () => {
+      const expr = matches<Resources, "post.id", Actor>("post.id", /^\d+$/);
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "abc123",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(false);
+    });
+
+    it("should support regex flags", () => {
+      const expr = matches<Resources, "post.status", Actor>("post.status", "PUBLISHED", "i");
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(true);
+    });
+
+    it("should return false for non-string values", () => {
+      const expr = matches<Resources, "post.score", Actor>("post.score" as never, "^\\d+$");
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 100,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(false);
+    });
+  });
+
+  describe("Cross-table operators (compile-only)", () => {
+    it("exists() should throw compile-only error", () => {
+      const expr = exists<Resources, Actor>("comments", { postId: "post.id" });
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(() => evaluate(expr, { actor, resources })).toThrow(
+        "exists() operator is compile-only",
+      );
+    });
+
+    it("count() should throw compile-only error", () => {
+      const expr = count<Resources, Actor>("comments", { postId: "post.id" });
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(() => evaluate(expr, { actor, resources })).toThrow(
+        "count() operator is compile-only",
+      );
+    });
+
+    it("hasMany() should throw compile-only error", () => {
+      const expr = hasMany<Resources, Actor>("permissions", { userId: "user.id" }, 2);
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(() => evaluate(expr, { actor, resources })).toThrow(
+        "hasMany() operator is compile-only",
+      );
+    });
+  });
+
+  describe("Multi-tenancy helpers", () => {
+    it("tenantScoped should match subject field with actor field", () => {
+      type ResourcesWithOrg = {
+        post: {
+          id: string;
+          ownerId: string;
+          published: boolean;
+          status: "draft" | "published" | "archived" | "deleted";
+          createdAt: string;
+          score: number;
+          deletedAt: string | null;
+          publishedAt: string | null;
+          organizationId: string;
+        };
+      };
+
+      type ActorWithOrg = {
+        user: {
+          id: string;
+          role: "admin" | "user";
+          age: number;
+          organizationId: string;
+        };
+      };
+
+      const expr = tenantScoped<ResourcesWithOrg, "post.organizationId", ActorWithOrg>(
+        "post.organizationId",
+      );
+      const actor = {
+        user: { id: "1", role: "user" as const, age: 25, organizationId: "org-123" },
+      };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+          organizationId: "org-123",
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(true);
+    });
+
+    it("belongsToTenant should compare actor and subject paths", () => {
+      type ResourcesWithOrg = {
+        post: {
+          id: string;
+          ownerId: string;
+          published: boolean;
+          status: "draft" | "published" | "archived" | "deleted";
+          createdAt: string;
+          score: number;
+          deletedAt: string | null;
+          publishedAt: string | null;
+          organizationId: string;
+        };
+      };
+
+      type ActorWithOrg = {
+        user: {
+          id: string;
+          role: "admin" | "user";
+          age: number;
+          organizationId: string;
+        };
+      };
+
+      const expr = belongsToTenant<ResourcesWithOrg, "post.organizationId", ActorWithOrg>(
+        "user.organizationId",
+        "post.organizationId",
+      );
+      const actor = {
+        user: { id: "1", role: "user" as const, age: 25, organizationId: "org-123" },
+      };
+      const resources = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+          organizationId: "org-123",
+        },
+      };
+      expect(evaluate(expr, { actor, resources })).toBe(true);
+    });
+  });
+
+  describe("Policy composition", () => {
+    it("extend() should merge policies with AND for overlapping actions", () => {
+      const basePolicy = policy<Actor, Resources>({
+        subject: "Post",
+        actions: {
+          read: eq<Resources, "post.published", Actor>("post.published", true),
+          delete: eq<Resources, "post.ownerId", Actor>("post.ownerId", "user.id"),
+        },
+      });
+
+      const extendedPolicy = extend(basePolicy, {
+        subject: "Post",
+        actions: {
+          read: eq<Resources, "post.status", Actor>("post.status", "published"),
+          update: eq<Resources, "post.ownerId", Actor>("post.ownerId", "user.id"),
+        },
+      });
+
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+
+      // Extended read should require BOTH published=true AND status="published"
+      const publishedPost = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(extendedPolicy.actions.read, { actor, resources: publishedPost })).toBe(true);
+
+      // Draft post should fail (published=true but status=draft)
+      const draftPost = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "draft" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(extendedPolicy.actions.read, { actor, resources: draftPost })).toBe(false);
+
+      // Delete should still work from base policy
+      expect(evaluate(extendedPolicy.actions.delete, { actor, resources: publishedPost })).toBe(
+        true,
+      );
+
+      // Update should work from extended policy
+      expect(evaluate(extendedPolicy.actions.update, { actor, resources: publishedPost })).toBe(
+        true,
+      );
+    });
+
+    it("andPolicies() should combine multiple policies with AND", () => {
+      const publishedPolicy = policy<Actor, Resources>({
+        subject: "Post",
+        actions: {
+          read: eq<Resources, "post.published", Actor>("post.published", true),
+        },
+      });
+
+      const notDeletedPolicy = policy<Actor, Resources>({
+        subject: "Post",
+        actions: {
+          read: neq<Resources, "post.status", Actor>("post.status", "deleted"),
+        },
+      });
+
+      const combinedPolicy = andPolicies([publishedPolicy, notDeletedPolicy]);
+
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+
+      // Published and not deleted - should pass
+      const goodPost = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(combinedPolicy.actions.read, { actor, resources: goodPost })).toBe(true);
+
+      // Not published - should fail
+      const unpublishedPost = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: false,
+          status: "draft" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(combinedPolicy.actions.read, { actor, resources: unpublishedPost })).toBe(
+        false,
+      );
+
+      // Published but deleted - should fail
+      const deletedPost = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: true,
+          status: "deleted" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: "2024-01-02",
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(combinedPolicy.actions.read, { actor, resources: deletedPost })).toBe(false);
+    });
+
+    it("orPolicies() should combine multiple policies with OR", () => {
+      // Note: orPolicies only combines declarative expressions, not functions
+      // Using eq with role check for admin policy
+      const adminPolicy = policy<Actor, Resources>({
+        subject: "Post",
+        actions: {
+          read: eq<Resources, "post.status", Actor>("post.status", "published"),
+        },
+      });
+
+      const ownerPolicy = policy<Actor, Resources>({
+        subject: "Post",
+        actions: {
+          read: eq<Resources, "post.ownerId", Actor>("post.ownerId", "user.id"),
+        },
+      });
+
+      const publicPolicy = policy<Actor, Resources>({
+        subject: "Post",
+        actions: {
+          read: eq<Resources, "post.published", Actor>("post.published", true),
+        },
+      });
+
+      const combinedPolicy = orPolicies([adminPolicy, ownerPolicy, publicPolicy]);
+
+      // Published post should pass (matches adminPolicy via status and publicPolicy via published)
+      const actor = { user: { id: "1", role: "user" as const, age: 25 } };
+      const publishedPost = {
+        post: {
+          id: "1",
+          ownerId: "2",
+          published: true,
+          status: "published" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(combinedPolicy.actions.read, { actor, resources: publishedPost })).toBe(true);
+
+      // Owner can read their own unpublished post
+      const ownerPost = {
+        post: {
+          id: "1",
+          ownerId: "1",
+          published: false,
+          status: "draft" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(evaluate(combinedPolicy.actions.read, { actor, resources: ownerPost })).toBe(true);
+
+      // Regular user can read published posts
+      const regularActor = { user: { id: "2", role: "user" as const, age: 25 } };
+      expect(
+        evaluate(combinedPolicy.actions.read, { actor: regularActor, resources: publishedPost }),
+      ).toBe(true);
+
+      // Regular user cannot read unpublished posts they don't own
+      const unpublishedPost = {
+        post: {
+          id: "1",
+          ownerId: "3",
+          published: false,
+          status: "draft" as const,
+          createdAt: "2024-01-01",
+          score: 0,
+          deletedAt: null,
+          publishedAt: null,
+        },
+      };
+      expect(
+        evaluate(combinedPolicy.actions.read, { actor: regularActor, resources: unpublishedPost }),
+      ).toBe(false);
     });
   });
 });
