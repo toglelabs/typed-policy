@@ -16,6 +16,48 @@ export type Expr<T, A = unknown> =
       right: Path<T> | PathValue<T, Path<T>>;
     }
   | {
+      kind: "neq";
+      left: Path<T>;
+      right: Path<T> | PathValue<T, Path<T>>;
+    }
+  | {
+      kind: "gt";
+      left: Path<T>;
+      right: Path<T> | PathValue<T, Path<T>>;
+    }
+  | {
+      kind: "lt";
+      left: Path<T>;
+      right: Path<T> | PathValue<T, Path<T>>;
+    }
+  | {
+      kind: "gte";
+      left: Path<T>;
+      right: Path<T> | PathValue<T, Path<T>>;
+    }
+  | {
+      kind: "lte";
+      left: Path<T>;
+      right: Path<T> | PathValue<T, Path<T>>;
+    }
+  | {
+      kind: "inArray";
+      path: Path<T>;
+      values: PathValue<T, Path<T>>[];
+    }
+  | {
+      kind: "isNull";
+      path: Path<T>;
+    }
+  | {
+      kind: "isNotNull";
+      path: Path<T>;
+    }
+  | {
+      kind: "not";
+      expr: Expr<T, A>;
+    }
+  | {
       kind: "and";
       rules: Expr<T, A>[];
     }

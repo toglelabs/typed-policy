@@ -1,6 +1,19 @@
 import type { EvalContext, Expr } from "@typed-policy/core";
 import type { AnyColumn, SQL } from "drizzle-orm";
-import { and as drizzleAnd, eq as drizzleEq, or as drizzleOr, sql } from "drizzle-orm";
+import {
+  and as drizzleAnd,
+  eq as drizzleEq,
+  gt as drizzleGt,
+  gte as drizzleGte,
+  inArray as drizzleInArray,
+  isNotNull as drizzleIsNotNull,
+  isNull as drizzleIsNull,
+  lt as drizzleLt,
+  lte as drizzleLte,
+  ne as drizzleNe,
+  or as drizzleOr,
+  sql,
+} from "drizzle-orm";
 
 /** Policy action type - matches the type in policy.ts */
 type PolicyAction<T, A> = Expr<T, A> | boolean | ((ctx: EvalContext<A>) => boolean | Expr<T, A>);
@@ -72,10 +85,10 @@ function getActorValueFromPath<A>(path: string, actor: A): unknown {
 }
 
 /**
- * Resolve the right-hand side of an eq expression
+ * Resolve a value for comparison operators
  * - Actor paths are resolved to their values (bound as SQL parameters)
  * - Literal values are returned as-is
- * - Subject paths are NOT allowed (error)
+ * - Subject paths on right side throw an error
  */
 function resolveRightValue<T, A>(
   right: string | number | boolean | null | undefined,
@@ -97,7 +110,7 @@ function resolveRightValue<T, A>(
 
     // It's a subject path - not allowed on the right side
     throw new Error(
-      `Cannot use subject path "${right}" on the right side of eq(). SQL compilation only supports subject paths on the left side (for column references) and actor paths on the right side (for parameterized values).`,
+      `Cannot use subject path "${right}" on the right side of comparison operator. SQL compilation only supports subject paths on the left side (for column references) and actor paths on the right side (for parameterized values).`,
     );
   }
 
@@ -175,6 +188,76 @@ function compileExpr<T, A>(expr: Expr<T, A>, tables: TableMapping<T>, actor: A):
       );
 
       return drizzleEq(column, value);
+    }
+
+    case "neq": {
+      const column = getColumnFromPath(expr.left, tables);
+      const value = resolveRightValue(
+        expr.right as string | number | boolean | null,
+        tables,
+        actor,
+      );
+      return drizzleNe(column, value);
+    }
+
+    case "gt": {
+      const column = getColumnFromPath(expr.left, tables);
+      const value = resolveRightValue(
+        expr.right as string | number | boolean | null,
+        tables,
+        actor,
+      );
+      return drizzleGt(column, value);
+    }
+
+    case "lt": {
+      const column = getColumnFromPath(expr.left, tables);
+      const value = resolveRightValue(
+        expr.right as string | number | boolean | null,
+        tables,
+        actor,
+      );
+      return drizzleLt(column, value);
+    }
+
+    case "gte": {
+      const column = getColumnFromPath(expr.left, tables);
+      const value = resolveRightValue(
+        expr.right as string | number | boolean | null,
+        tables,
+        actor,
+      );
+      return drizzleGte(column, value);
+    }
+
+    case "lte": {
+      const column = getColumnFromPath(expr.left, tables);
+      const value = resolveRightValue(
+        expr.right as string | number | boolean | null,
+        tables,
+        actor,
+      );
+      return drizzleLte(column, value);
+    }
+
+    case "inArray": {
+      const column = getColumnFromPath(expr.path, tables);
+      return drizzleInArray(column, expr.values);
+    }
+
+    case "isNull": {
+      const column = getColumnFromPath(expr.path, tables);
+      return drizzleIsNull(column);
+    }
+
+    case "isNotNull": {
+      const column = getColumnFromPath(expr.path, tables);
+      return drizzleIsNotNull(column);
+    }
+
+    case "not": {
+      const innerCondition = compileExpr(expr.expr, tables, actor);
+      return sql`NOT (${innerCondition})`;
     }
 
     case "and": {

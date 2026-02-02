@@ -8,7 +8,20 @@ export type {
   FullContext,
   ResourceMapping,
 } from "./context.js";
-export { eq, and, or } from "./operators.js";
+export {
+  eq,
+  neq,
+  gt,
+  lt,
+  gte,
+  lte,
+  inArray,
+  isNull,
+  isNotNull,
+  not,
+  and,
+  or,
+} from "./operators.js";
 export { policy } from "./policy.js";
 export type { PolicyConfig } from "./policy.js";
 export type {

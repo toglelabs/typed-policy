@@ -1,6 +1,6 @@
 {
   "name": "@typed-policy/eval",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Frontend policy evaluator",
   "author": "Ihsan VP <m.ihsan.vp@gmail.com>",
   "license": "MIT",

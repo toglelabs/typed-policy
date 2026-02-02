@@ -24,12 +24,28 @@ export type EvaluateOptions<T, A> = {
 };
 
 /**
- * Resolve a dot-notation path from a nested resources object
+ * Resolve a dot-notation path from actor or resources context
  * Path format: "post.published" -> resources.post.published
+ * Path format: "user.age" -> actor.user.age
  */
-function resolveValue<T>(path: string, resources: ResourceMapping<T>): unknown {
+function resolveValue<T, A>(path: string, resources: ResourceMapping<T>, actor: A): unknown {
   const keys = path.split(".");
-  let current: unknown = resources;
+  const firstKey = keys[0];
+
+  // Determine if this is an actor path by checking if first key exists in actor
+  // and not in resources, or exists in both but we prioritize actor for certain keys
+  let current: unknown;
+
+  // Check if path starts with a resources key
+  if (firstKey && firstKey in resources) {
+    current = resources;
+  } else if (firstKey && firstKey in (actor as Record<string, unknown>)) {
+    // Otherwise try actor
+    current = actor;
+  } else {
+    // Default to resources (will return undefined if not found)
+    current = resources;
+  }
 
   for (const key of keys) {
     if (current === null || current === undefined) {
@@ -95,13 +111,71 @@ export function evaluate<T, A = unknown>(
       return evaluate(result as PolicyAction<T, A>, { actor, resources });
     }
     case "eq": {
-      // Path resolution uses resources - DSL accesses resource data
-      const leftValue = resolveValue(expr.left, resources);
+      const leftValue = resolveValue(expr.left, resources, actor);
       const rightValue =
         typeof expr.right === "string" && expr.right.includes(".")
-          ? resolveValue(expr.right, resources)
+          ? resolveValue(expr.right, resources, actor)
           : expr.right;
       return leftValue === rightValue;
+    }
+    case "neq": {
+      const leftValue = resolveValue(expr.left, resources, actor);
+      const rightValue =
+        typeof expr.right === "string" && expr.right.includes(".")
+          ? resolveValue(expr.right, resources, actor)
+          : expr.right;
+      return leftValue !== rightValue;
+    }
+    case "gt": {
+      const leftValue = resolveValue(expr.left, resources, actor);
+      const rightValue =
+        typeof expr.right === "string" && expr.right.includes(".")
+          ? resolveValue(expr.right, resources, actor)
+          : expr.right;
+      if (leftValue == null || rightValue == null) return false;
+      return leftValue > rightValue;
+    }
+    case "lt": {
+      const leftValue = resolveValue(expr.left, resources, actor);
+      const rightValue =
+        typeof expr.right === "string" && expr.right.includes(".")
+          ? resolveValue(expr.right, resources, actor)
+          : expr.right;
+      if (leftValue == null || rightValue == null) return false;
+      return leftValue < rightValue;
+    }
+    case "gte": {
+      const leftValue = resolveValue(expr.left, resources, actor);
+      const rightValue =
+        typeof expr.right === "string" && expr.right.includes(".")
+          ? resolveValue(expr.right, resources, actor)
+          : expr.right;
+      if (leftValue == null || rightValue == null) return false;
+      return leftValue >= rightValue;
+    }
+    case "lte": {
+      const leftValue = resolveValue(expr.left, resources, actor);
+      const rightValue =
+        typeof expr.right === "string" && expr.right.includes(".")
+          ? resolveValue(expr.right, resources, actor)
+          : expr.right;
+      if (leftValue == null || rightValue == null) return false;
+      return leftValue <= rightValue;
+    }
+    case "inArray": {
+      const pathValue = resolveValue(expr.path, resources, actor);
+      return expr.values.includes(pathValue as never);
+    }
+    case "isNull": {
+      const pathValue = resolveValue(expr.path, resources, actor);
+      return pathValue === null;
+    }
+    case "isNotNull": {
+      const pathValue = resolveValue(expr.path, resources, actor);
+      return pathValue !== null;
+    }
+    case "not": {
+      return !evaluate(expr.expr, { actor, resources });
     }
     case "and": {
       return expr.rules.every((rule: Expr<T, A>) => evaluate(rule, { actor, resources }));
