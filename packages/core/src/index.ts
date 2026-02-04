@@ -1,6 +1,27 @@
-export type { Path, Primitive } from "./paths.js";
-export type { PathValue, PolicyContext } from "./types.js";
-export type { Expr, CrossTableConditions } from "./ast.js";
+export type { Primitive } from "./types.js";
+export type { Expr } from "./ast.js";
+export type {
+  SubjectPath,
+  ActorValue,
+  TableRef,
+  SubjectProxy,
+  ScopedSubjectPath,
+  ScopedSubjectProxy,
+} from "./symbolic.js";
+export {
+  createSubjectProxy,
+  createActorProxy,
+  createScopedProxy,
+  isSubjectPath,
+  isScopedSubjectPath,
+  isActorValue,
+  isTableRef,
+  isProxy,
+  normalizePath,
+  normalizeValue,
+  getTableName,
+  getPathInfo,
+} from "./proxies.js";
 export type {
   ActorContext,
   SubjectContext,
@@ -36,10 +57,6 @@ export { policy, extend, andPolicies, orPolicies } from "./policy.js";
 export type { PolicyConfig, Policy } from "./policy.js";
 export type {
   UnionToIntersection,
-  ExprPaths,
-  DeepPick,
-  MinimalContext,
-  InferSubjectContext,
   InferActorContext,
 } from "./infer.js";
 export { createContextError } from "./errors.js";

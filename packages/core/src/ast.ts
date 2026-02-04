@@ -1,9 +1,16 @@
-import type { Path, PathValue } from "./types.js";
+import type {
+  ActorValue,
+  Primitive,
+  ScopedSubjectPath,
+  SubjectPath,
+  TableRef,
+} from "./symbolic.js";
 
 /**
- * Conditions for cross-table operations
+ * Path or value type for right side of operators
+ * Includes SubjectPath, ScopedSubjectPath, ActorValue, and primitive types
  */
-export type CrossTableConditions = Record<string, string | number | boolean | null>;
+export type PathOrValue = SubjectPath | ScopedSubjectPath | ActorValue | Primitive;
 
 /**
  * Expression AST type
@@ -14,118 +21,63 @@ export type CrossTableConditions = Record<string, string | number | boolean | nu
  * @example
  * type MyExpr = Expr<{ post: { published: boolean } }, { user: { role: string } }>;
  */
-export type Expr<T, A = unknown> =
+export type Expr<T, A> =
   | {
       kind: "eq";
-      left: Path<T>;
-      right: Path<T> | PathValue<T, Path<T>>;
+      left: SubjectPath | ScopedSubjectPath;
+      right: PathOrValue;
     }
   | {
       kind: "neq";
-      left: Path<T>;
-      right: Path<T> | PathValue<T, Path<T>>;
+      left: SubjectPath | ScopedSubjectPath;
+      right: PathOrValue;
     }
   | {
       kind: "gt";
-      left: Path<T>;
-      right: Path<T> | PathValue<T, Path<T>>;
+      left: SubjectPath | ScopedSubjectPath;
+      right: PathOrValue;
     }
   | {
       kind: "lt";
-      left: Path<T>;
-      right: Path<T> | PathValue<T, Path<T>>;
+      left: SubjectPath | ScopedSubjectPath;
+      right: PathOrValue;
     }
   | {
       kind: "gte";
-      left: Path<T>;
-      right: Path<T> | PathValue<T, Path<T>>;
+      left: SubjectPath | ScopedSubjectPath;
+      right: PathOrValue;
     }
   | {
       kind: "lte";
-      left: Path<T>;
-      right: Path<T> | PathValue<T, Path<T>>;
+      left: SubjectPath | ScopedSubjectPath;
+      right: PathOrValue;
     }
-  | {
-      kind: "inArray";
-      path: Path<T>;
-      values: PathValue<T, Path<T>>[];
-    }
-  | {
-      kind: "isNull";
-      path: Path<T>;
-    }
-  | {
-      kind: "isNotNull";
-      path: Path<T>;
-    }
-  | {
-      kind: "startsWith";
-      path: Path<T>;
-      prefix: string;
-    }
-  | {
-      kind: "endsWith";
-      path: Path<T>;
-      suffix: string;
-    }
-  | {
-      kind: "contains";
-      path: Path<T>;
-      value: string;
-    }
+  | { kind: "inArray"; path: SubjectPath | ScopedSubjectPath; values: Primitive[] }
+  | { kind: "isNull"; path: SubjectPath | ScopedSubjectPath }
+  | { kind: "isNotNull"; path: SubjectPath | ScopedSubjectPath }
+  | { kind: "startsWith"; path: SubjectPath | ScopedSubjectPath; prefix: string }
+  | { kind: "endsWith"; path: SubjectPath | ScopedSubjectPath; suffix: string }
+  | { kind: "contains"; path: SubjectPath | ScopedSubjectPath; value: string }
   | {
       kind: "between";
-      path: Path<T>;
-      min: Path<T> | PathValue<T, Path<T>>;
-      max: Path<T> | PathValue<T, Path<T>>;
+      path: SubjectPath | ScopedSubjectPath;
+      min: PathOrValue;
+      max: PathOrValue;
     }
-  | {
-      kind: "matches";
-      path: Path<T>;
-      pattern: string; // Store as string, compile to RegExp
-      flags?: string;
-    }
-  | {
-      kind: "exists";
-      table: string;
-      conditions: CrossTableConditions;
-    }
-  | {
-      kind: "count";
-      table: string;
-      conditions: CrossTableConditions;
-    }
-  | {
-      kind: "hasMany";
-      table: string;
-      conditions: CrossTableConditions;
-      minCount?: number; // Default: 2
-    }
-  | {
-      kind: "tenantScoped";
-      path: Path<T>;
-    }
+  | { kind: "matches"; path: SubjectPath | ScopedSubjectPath; pattern: string; flags?: string }
+  | { kind: "exists"; table: TableRef; predicate: Expr<any, A> }
+  | { kind: "count"; table: TableRef; predicate: Expr<any, A> }
+  | { kind: "hasMany"; table: TableRef; predicate: Expr<any, A>; minCount?: number }
+  | { kind: "tenantScoped"; path: SubjectPath | ScopedSubjectPath }
   | {
       kind: "belongsToTenant";
-      actorPath: string; // e.g., "user.organizationId"
-      subjectPath: Path<T>; // e.g., "post.organizationId"
+      actorValue: ActorValue;
+      subjectPath: SubjectPath | ScopedSubjectPath;
     }
-  | {
-      kind: "not";
-      expr: Expr<T, A>;
-    }
-  | {
-      kind: "and";
-      rules: Expr<T, A>[];
-    }
-  | {
-      kind: "or";
-      rules: Expr<T, A>[];
-    }
-  | {
-      kind: "literal";
-      value: boolean;
-    }
+  | { kind: "not"; expr: Expr<T, A> }
+  | { kind: "and"; rules: Expr<T, A>[] }
+  | { kind: "or"; rules: Expr<T, A>[] }
+  | { kind: "literal"; value: boolean }
   | {
       kind: "function";
       fn: (ctx: { actor: A }) => boolean | Expr<T, A>;

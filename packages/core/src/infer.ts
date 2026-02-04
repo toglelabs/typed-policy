@@ -1,5 +1,5 @@
 import type { Expr } from "./ast.js";
-import type { Path } from "./types.js";
+// import type { Path } from "./types.js"; // TODO: Remove when migrating to symbolic paths
 
 /**
  * Converts a union type to an intersection type
@@ -11,83 +11,54 @@ export type UnionToIntersection<U> = (U extends unknown ? (k: U) => void : never
   ? I
   : never;
 
-/**
- * Extracts all subject paths used in an expression
- * This traverses the expression AST and collects all paths that reference the subject (T)
- */
-export type ExprPaths<T, A, E extends Expr<T, A>> = E extends {
-  kind: "eq";
-  left: infer L extends Path<T>;
-  right: infer R;
-}
-  ? R extends Path<T>
-    ? L | R
-    : L
-  : E extends { kind: "and" | "or"; rules: infer Rules extends readonly Expr<T, A>[] }
-    ? Rules extends readonly [infer First, ...infer Rest]
-      ? First extends Expr<T, A>
-        ? Rest extends readonly Expr<T, A>[]
-          ? ExprPaths<T, A, First> | ExprPathsMany<T, A, Rest>
-          : ExprPaths<T, A, First>
-        : never
-      : never
-    : never;
+// TODO: Rewrite these types for symbolic paths
+// For now, comment out to allow compilation
+// These utilities are designed for string-based paths
 
-/**
- * Helper type to extract paths from multiple expressions
- */
-type ExprPathsMany<T, A, Rules extends readonly Expr<T, A>[]> = Rules extends readonly [
-  infer First,
-  ...infer Rest,
-]
-  ? First extends Expr<T, A>
-    ? Rest extends readonly Expr<T, A>[]
-      ? ExprPaths<T, A, First> | ExprPathsMany<T, A, Rest>
-      : ExprPaths<T, A, First>
-    : never
-  : never;
+// /**
+//  * Extracts all subject paths used in an expression
+//  * This traverses the expression AST and collects all paths that reference the subject (T)
+//  */
+// export type ExprPaths<T, A, E extends Expr<T, A>> = never;
 
-/**
- * DeepPick - picks nested properties from an object type using dot-notation paths
- * Similar to a deep version of TypeScript's built-in Pick
- *
- * @example
- * type Obj = { post: { published: boolean; title: string } };
- * type Picked = DeepPick<Obj, "post.published">; // { post: { published: boolean } }
- */
-export type DeepPick<T, P extends string> = P extends `${infer K}.${infer Rest}`
-  ? K extends keyof T
-    ? { [Key in K]: DeepPick<T[K], Rest> }
-    : never
-  : P extends keyof T
-    ? { [Key in P]: T[Key] }
-    : never;
+// /**
+//  * Helper type to extract paths from multiple expressions
+//  */
+// type ExprPathsMany<T, A, Rules extends readonly Expr<T, A>[]> = never;
 
-/**
- * Builds minimal context containing only the paths referenced in an expression
- * This allows creating a subset of the full context with only what's needed
- *
- * @example
- * type Full = { post: { published: boolean; title: string } };
- * type Minimal = MinimalContext<Full, "post.published">;
- * // Result: { post: { published: boolean } }
- */
-export type MinimalContext<T, P extends Path<T>> = UnionToIntersection<DeepPick<T, P>>;
+// /**
+//  * DeepPick - picks nested properties from an object type using dot-notation paths
+//  * Similar to a deep version of TypeScript's built-in Pick
+//  *
+//  * @example
+//  * type Obj = { post: { published: boolean; title: string } };
+//  * type Picked = DeepPick<Obj, "post.published">; // { post: { published: boolean } }
+//  */
+// export type DeepPick<T, P extends string> = never;
 
-/**
- * Infers the minimal subject context type required for an expression
- * Only includes the paths that are actually referenced in the expression
- *
- * @example
- * type MySubject = { post: { published: boolean; title: string } };
- * type MyActor = { user: { id: string } };
- * type MyExpr = Expr<MySubject, MyActor>; // eq("post.published", true)
- * type Subject = InferSubjectContext<MySubject, MyActor, MyExpr>;
- * // Result: { post: { published: boolean } }
- */
-export type InferSubjectContext<T, A, E extends Expr<T, A>> = ExprPaths<T, A, E> extends Path<T>
-  ? UnionToIntersection<DeepPick<T, ExprPaths<T, A, E>>>
-  : T;
+// /**
+//  * Builds minimal context containing only the paths referenced in an expression
+//  * This allows creating a subset of the full context with only what's needed
+//  *
+//  * @example
+//  * type Full = { post: { published: boolean; title: string } };
+//  * type Minimal = MinimalContext<Full, "post.published">;
+//  * // Result: { post: { published: boolean } }
+//  */
+// export type MinimalContext<T, P extends string> = T;
+
+// /**
+//  * Infers the minimal subject context type required for an expression
+//  * Only includes the paths that are actually referenced in the expression
+//  *
+//  * @example
+//  * type MySubject = { post: { published: boolean; title: string } };
+//  * type MyActor = { user: { id: string } };
+//  * type MyExpr = Expr<MySubject, MyActor>; // eq("post.published", true)
+//  * type Subject = InferSubjectContext<MySubject, MyActor, MyExpr>;
+//  * // Result: { post: { published: boolean } }
+//  */
+// export type InferSubjectContext<T, A, E extends Expr<T, A>> = T;
 
 /**
  * Infers the actor context type from an expression

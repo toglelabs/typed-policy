@@ -1,4 +1,12 @@
 import type { EvalContext, Expr } from "@typed-policy/core";
+import {
+  type ActorValue,
+  type ScopedSubjectPath,
+  type SubjectPath,
+  getPathInfo,
+  getTableName,
+  isActorValue,
+} from "@typed-policy/core";
 import type { AnyColumn, SQL } from "drizzle-orm";
 import {
   and as drizzleAnd,
@@ -39,91 +47,66 @@ export type CompileOptions<T, A> = {
 };
 
 /**
- * Get a Drizzle column from a subject path
- * Only subject paths (starting with a table key in tables) are allowed
+ * Get a Drizzle column from a SubjectPath or ScopedSubjectPath
  */
-function getColumnFromPath<T>(path: string, tables: TableMapping<T>): AnyColumn {
-  const parts = path.split(".");
-  const tableKey = parts[0] as keyof T;
-  const columnKey = parts[1] as keyof T[typeof tableKey];
+function getColumnFromPath<T>(
+  path: SubjectPath | ScopedSubjectPath,
+  tables: TableMapping<T>,
+): AnyColumn {
+  const { table, column } = getPathInfo(path);
+  const tableKey = table as keyof T;
+  const columnKey = column as keyof T[typeof tableKey];
 
-  const table = tables[tableKey];
+  const tableDef = tables[tableKey];
 
-  if (!table) {
+  if (!tableDef) {
     throw new Error(
-      `Cannot compile path "${path}" to SQL: "${String(tableKey)}" is not a subject table. Only subject paths (mapped in tables) are allowed in SQL compilation. Available subject tables: ${Object.keys(tables).join(", ")}`,
+      `Cannot compile path to SQL: "${String(tableKey)}" is not a subject table. Only subject paths (mapped in tables) are allowed in SQL compilation. Available subject tables: ${Object.keys(tables).join(", ")}`,
     );
   }
 
-  const column = table[columnKey];
+  const columnDef = tableDef[columnKey];
 
-  if (!column) {
+  if (!columnDef) {
     throw new Error(
-      `Cannot compile path "${path}" to SQL: "${String(columnKey)}" is not a valid column on table "${String(tableKey)}". Available columns: ${Object.keys(table).join(", ")}`,
+      `Cannot compile path to SQL: "${String(columnKey)}" is not a valid column on table "${String(tableKey)}". Available columns: ${Object.keys(tableDef).join(", ")}`,
     );
   }
 
-  return column;
+  return columnDef;
 }
 
 /**
- * Check if a path is an actor path (not mapped as a subject table)
- */
-function isActorPath<T>(path: string, tables: TableMapping<T>): boolean {
-  const parts = path.split(".");
-  const tableKey = parts[0] as keyof T;
-  // It's an actor path if it's not mapped as a subject table
-  return !(tableKey in tables);
-}
-
-/**
- * Get a value from an actor path at compile time
+ * Get a value from an ActorValue at compile time
  * Actor values are bound as SQL parameters
  */
-function getActorValueFromPath<A>(path: string, actor: A): unknown {
-  const parts = path.split(".");
-
-  let current: unknown = actor;
-  for (let i = 0; i < parts.length; i++) {
-    if (current === null || current === undefined) {
-      return undefined;
-    }
-    current = (current as Record<string, unknown>)[parts[i]];
-  }
-  return current;
+function getActorValue(actorValue: ActorValue): unknown {
+  return actorValue.value;
 }
 
 /**
  * Resolve a value for comparison operators
- * - Actor paths are resolved to their values (bound as SQL parameters)
+ * - ActorValue is resolved to its value (bound as SQL parameter)
  * - Literal values are returned as-is
- * - Subject paths on right side throw an error
  */
 function resolveRightValue<T, A>(
-  right: string | number | boolean | null | undefined,
-  tables: TableMapping<T>,
-  actor: A,
+  right:
+    | SubjectPath
+    | ScopedSubjectPath
+    | ActorValue
+    | string
+    | number
+    | boolean
+    | null
+    | undefined,
+  _tables: TableMapping<T>,
+  _actor: A,
 ): unknown {
-  // If it's a string that looks like a path (contains dot)
-  if (typeof right === "string" && right.includes(".")) {
-    // Check if it's an actor path
-    if (isActorPath(right, tables)) {
-      const value = getActorValueFromPath(right, actor);
-      if (value === undefined) {
-        throw new Error(
-          `Actor value not found for path: ${right}. Ensure the path exists in the actor object provided to compile().`,
-        );
-      }
-      return value;
-    }
-
-    // It's a subject path - not allowed on the right side
-    throw new Error(
-      `Cannot use subject path "${right}" on the right side of comparison operator. SQL compilation only supports subject paths on the left side (for column references) and actor paths on the right side (for parameterized values).`,
-    );
+  if (isActorValue(right)) {
+    return getActorValue(right);
   }
 
-  // It's a literal value
+  // It's a literal value (including undefined)
   return right;
 }
 
@@ -194,63 +177,39 @@ function compileExpr<T, A>(
       // Left side must be a subject path (column reference)
       const column = getColumnFromPath(expr.left, tables);
 
-      // Right side can be an actor path (resolved to value) or a literal
-      const value = resolveRightValue(
-        expr.right as string | number | boolean | null,
-        tables,
-        actor,
-      );
+      // Right side can be an ActorValue (resolved to value) or a literal
+      const value = resolveRightValue(expr.right, tables, actor);
 
       return drizzleEq(column, value);
     }
 
     case "neq": {
       const column = getColumnFromPath(expr.left, tables);
-      const value = resolveRightValue(
-        expr.right as string | number | boolean | null,
-        tables,
-        actor,
-      );
+      const value = resolveRightValue(expr.right, tables, actor);
       return drizzleNe(column, value);
     }
 
     case "gt": {
       const column = getColumnFromPath(expr.left, tables);
-      const value = resolveRightValue(
-        expr.right as string | number | boolean | null,
-        tables,
-        actor,
-      );
+      const value = resolveRightValue(expr.right, tables, actor);
       return drizzleGt(column, value);
     }
 
     case "lt": {
       const column = getColumnFromPath(expr.left, tables);
-      const value = resolveRightValue(
-        expr.right as string | number | boolean | null,
-        tables,
-        actor,
-      );
+      const value = resolveRightValue(expr.right, tables, actor);
       return drizzleLt(column, value);
     }
 
     case "gte": {
       const column = getColumnFromPath(expr.left, tables);
-      const value = resolveRightValue(
-        expr.right as string | number | boolean | null,
-        tables,
-        actor,
-      );
+      const value = resolveRightValue(expr.right, tables, actor);
       return drizzleGte(column, value);
     }
 
     case "lte": {
       const column = getColumnFromPath(expr.left, tables);
-      const value = resolveRightValue(
-        expr.right as string | number | boolean | null,
-        tables,
-        actor,
-      );
+      const value = resolveRightValue(expr.right, tables, actor);
       return drizzleLte(column, value);
     }
 
@@ -286,16 +245,8 @@ function compileExpr<T, A>(
 
     case "between": {
       const column = getColumnFromPath(expr.path, tables);
-      const minValue = resolveRightValue(
-        expr.min as string | number | boolean | null,
-        tables,
-        actor,
-      );
-      const maxValue = resolveRightValue(
-        expr.max as string | number | boolean | null,
-        tables,
-        actor,
-      );
+      const minValue = resolveRightValue(expr.min, tables, actor);
+      const maxValue = resolveRightValue(expr.max, tables, actor);
       return drizzleBetween(column, minValue, maxValue);
     }
 
@@ -320,37 +271,22 @@ function compileExpr<T, A>(
         );
       }
 
-      const relatedTable = relatedTables[expr.table];
+      const tableName = getTableName(expr.table);
+      const relatedTable = relatedTables[tableName];
+
       if (!relatedTable) {
         throw new Error(
-          `Related table "${expr.table}" not found in relatedTables mapping. ` +
+          `Related table "${tableName}" not found in relatedTables mapping. ` +
             `Available tables: ${Object.keys(relatedTables).join(", ")}`,
         );
       }
 
-      // Build EXISTS subquery
-      // Note: This is a simplified version. Full implementation would require
-      // access to the actual Drizzle table definitions.
-      const conditions = Object.entries(expr.conditions).map(([key, value]) => {
-        const column = relatedTable[key];
-        if (!column) {
-          throw new Error(`Column "${key}" not found in related table "${expr.table}"`);
-        }
-
-        // If value looks like a path, resolve it
-        if (typeof value === "string" && value.includes(".")) {
-          const resolvedValue = isActorPath(value, tables)
-            ? getActorValueFromPath(value, actor)
-            : value; // Subject path - needs correlation
-          return drizzleEq(column, resolvedValue);
-        }
-
-        return drizzleEq(column, value);
-      });
-
-      // Return EXISTS with subquery using sql template
-      const subqueryWhere = conditions.length === 1 ? conditions[0] : drizzleAnd(...conditions);
-      return sql`EXISTS (SELECT 1 FROM "${sql.raw(expr.table)}" WHERE ${subqueryWhere})`;
+      // TODO: Implement predicate-based exists
+      // For now, throw an error indicating this needs implementation
+      throw new Error(
+        "exists() with predicate-based API requires full implementation. " +
+          "Please update compile.ts to handle predicate functions.",
+      );
     }
 
     case "count": {
@@ -361,33 +297,21 @@ function compileExpr<T, A>(
         );
       }
 
-      const relatedTable = relatedTables[expr.table];
+      const tableName = getTableName(expr.table);
+      const relatedTable = relatedTables[tableName];
+
       if (!relatedTable) {
         throw new Error(
-          `Related table "${expr.table}" not found in relatedTables mapping. ` +
+          `Related table "${tableName}" not found in relatedTables mapping. ` +
             `Available tables: ${Object.keys(relatedTables).join(", ")}`,
         );
       }
 
-      // Build COUNT subquery
-      const conditions = Object.entries(expr.conditions).map(([key, value]) => {
-        const column = relatedTable[key];
-        if (!column) {
-          throw new Error(`Column "${key}" not found in related table "${expr.table}"`);
-        }
-
-        if (typeof value === "string" && value.includes(".")) {
-          const resolvedValue = isActorPath(value, tables)
-            ? getActorValueFromPath(value, actor)
-            : value;
-          return drizzleEq(column, resolvedValue);
-        }
-
-        return drizzleEq(column, value);
-      });
-
-      const subqueryWhere = conditions.length === 1 ? conditions[0] : drizzleAnd(...conditions);
-      return sql`(SELECT count(*) FROM "${sql.raw(expr.table)}" WHERE ${subqueryWhere})`;
+      // TODO: Implement predicate-based count
+      throw new Error(
+        "count() with predicate-based API requires full implementation. " +
+          "Please update compile.ts to handle predicate functions.",
+      );
     }
 
     case "hasMany": {
@@ -398,60 +322,55 @@ function compileExpr<T, A>(
         );
       }
 
-      const relatedTable = relatedTables[expr.table];
+      const tableName = getTableName(expr.table);
+      const relatedTable = relatedTables[tableName];
+
       if (!relatedTable) {
         throw new Error(
-          `Related table "${expr.table}" not found in relatedTables mapping. ` +
+          `Related table "${tableName}" not found in relatedTables mapping. ` +
             `Available tables: ${Object.keys(relatedTables).join(", ")}`,
         );
       }
 
-      // Build COUNT subquery and compare against minCount
-      const conditions = Object.entries(expr.conditions).map(([key, value]) => {
-        const column = relatedTable[key];
-        if (!column) {
-          throw new Error(`Column "${key}" not found in related table "${expr.table}"`);
-        }
-
-        if (typeof value === "string" && value.includes(".")) {
-          const resolvedValue = isActorPath(value, tables)
-            ? getActorValueFromPath(value, actor)
-            : value;
-          return drizzleEq(column, resolvedValue);
-        }
-
-        return drizzleEq(column, value);
-      });
-
-      const minCount = expr.minCount ?? 2;
-      const subqueryWhere = conditions.length === 1 ? conditions[0] : drizzleAnd(...conditions);
-      return sql`(SELECT count(*) FROM "${sql.raw(expr.table)}" WHERE ${subqueryWhere}) >= ${minCount}`;
+      // TODO: Implement predicate-based hasMany
+      throw new Error(
+        "hasMany() with predicate-based API requires full implementation. " +
+          "Please update compile.ts to handle predicate functions.",
+      );
     }
 
     case "tenantScoped": {
       const column = getColumnFromPath(expr.path, tables);
-      // Extract the field name from the path (e.g., "post.organizationId" -> "organizationId")
-      const pathParts = expr.path.split(".");
-      const fieldName = pathParts[pathParts.length - 1];
+      // Get the column name from the path
+      const { column: columnName } = getPathInfo(expr.path);
+
       // Assume actor has the same field (e.g., "user.organizationId")
-      const actorPath = `user.${fieldName}`;
-      const actorValue = getActorValueFromPath(actorPath, actor);
+      const actorAsRecord = actor as Record<string, unknown>;
+      let actorValue: unknown;
+
+      // Try user.{column} pattern
+      if (actorAsRecord.user && typeof actorAsRecord.user === "object") {
+        actorValue = (actorAsRecord.user as Record<string, unknown>)[columnName];
+      }
+
+      // Try direct access as fallback
+      if (actorValue === undefined) {
+        actorValue = actorAsRecord[columnName];
+      }
 
       if (actorValue === undefined) {
-        throw new Error(
-          `tenantScoped() requires actor to have field "${fieldName}" at path "${actorPath}"`,
-        );
+        throw new Error(`tenantScoped() requires actor to have field "${columnName}"`);
       }
 
       return drizzleEq(column, actorValue);
     }
 
     case "belongsToTenant": {
-      const actorValue = getActorValueFromPath(expr.actorPath, actor);
+      const actorValue = getActorValue(expr.actorValue);
       const subjectColumn = getColumnFromPath(expr.subjectPath, tables);
 
       if (actorValue === undefined) {
-        throw new Error(`belongsToTenant() requires actor value at path "${expr.actorPath}"`);
+        throw new Error("belongsToTenant() requires actor value");
       }
 
       return drizzleEq(subjectColumn, actorValue);

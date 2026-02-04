@@ -1,17 +1,17 @@
 import type { Expr } from "./ast.js";
-import type { Path, PathValue } from "./types.js";
+import type { ActorValue, ScopedSubjectPath, SubjectPath, TableRef } from "./symbolic.js";
 
 /**
  * Equality comparison operator
  * Compares a subject path to a value or another path
  *
  * @example
- * eq("post.published", true)
- * eq("post.ownerId", "user.id")
+ * eq(subject.post.published, true)
+ * eq(subject.post.ownerId, actor.user.id)
  */
-export function eq<T, L extends Path<T>, A = unknown>(
-  left: L,
-  right: Path<T> | PathValue<T, L>,
+export function eq<T, A = unknown>(
+  left: SubjectPath | ScopedSubjectPath,
+  right: SubjectPath | ScopedSubjectPath | ActorValue | string | number | boolean | null,
 ): Expr<T, A> {
   return { kind: "eq", left, right };
 }
@@ -21,12 +21,12 @@ export function eq<T, L extends Path<T>, A = unknown>(
  * Returns true when left and right values are not equal
  *
  * @example
- * neq("post.status", "deleted")
- * neq("user.role", "banned")
+ * neq(subject.post.status, "deleted")
+ * neq(subject.user.role, "banned")
  */
-export function neq<T, L extends Path<T>, A = unknown>(
-  left: L,
-  right: Path<T> | PathValue<T, L>,
+export function neq<T, A = unknown>(
+  left: SubjectPath | ScopedSubjectPath,
+  right: SubjectPath | ScopedSubjectPath | ActorValue | string | number | boolean | null,
 ): Expr<T, A> {
   return { kind: "neq", left, right };
 }
@@ -35,12 +35,12 @@ export function neq<T, L extends Path<T>, A = unknown>(
  * Greater than comparison operator
  *
  * @example
- * gt("user.age", 18)
- * gt("post.createdAt", "2024-01-01")
+ * gt(subject.user.age, 18)
+ * gt(subject.post.createdAt, "2024-01-01")
  */
-export function gt<T, L extends Path<T>, A = unknown>(
-  left: L,
-  right: Path<T> | PathValue<T, L>,
+export function gt<T, A = unknown>(
+  left: SubjectPath | ScopedSubjectPath,
+  right: SubjectPath | ScopedSubjectPath | ActorValue | string | number,
 ): Expr<T, A> {
   return { kind: "gt", left, right };
 }
@@ -49,12 +49,12 @@ export function gt<T, L extends Path<T>, A = unknown>(
  * Less than comparison operator
  *
  * @example
- * lt("user.age", 18)
- * lt("post.createdAt", "2024-12-31")
+ * lt(subject.user.age, 18)
+ * lt(subject.post.createdAt, "2024-12-31")
  */
-export function lt<T, L extends Path<T>, A = unknown>(
-  left: L,
-  right: Path<T> | PathValue<T, L>,
+export function lt<T, A = unknown>(
+  left: SubjectPath | ScopedSubjectPath,
+  right: SubjectPath | ScopedSubjectPath | ActorValue | string | number,
 ): Expr<T, A> {
   return { kind: "lt", left, right };
 }
@@ -63,12 +63,12 @@ export function lt<T, L extends Path<T>, A = unknown>(
  * Greater than or equal comparison operator
  *
  * @example
- * gte("post.score", 0)
- * gte("user.createdAt", "2024-01-01")
+ * gte(subject.post.score, 0)
+ * gte(subject.user.createdAt, "2024-01-01")
  */
-export function gte<T, L extends Path<T>, A = unknown>(
-  left: L,
-  right: Path<T> | PathValue<T, L>,
+export function gte<T, A = unknown>(
+  left: SubjectPath | ScopedSubjectPath,
+  right: SubjectPath | ScopedSubjectPath | ActorValue | string | number,
 ): Expr<T, A> {
   return { kind: "gte", left, right };
 }
@@ -77,12 +77,12 @@ export function gte<T, L extends Path<T>, A = unknown>(
  * Less than or equal comparison operator
  *
  * @example
- * lte("user.loginAttempts", 3)
- * lte("post.createdAt", "2024-12-31")
+ * lte(subject.user.loginAttempts, 3)
+ * lte(subject.post.createdAt, "2024-12-31")
  */
-export function lte<T, L extends Path<T>, A = unknown>(
-  left: L,
-  right: Path<T> | PathValue<T, L>,
+export function lte<T, A = unknown>(
+  left: SubjectPath | ScopedSubjectPath,
+  right: SubjectPath | ScopedSubjectPath | ActorValue | string | number,
 ): Expr<T, A> {
   return { kind: "lte", left, right };
 }
@@ -92,12 +92,12 @@ export function lte<T, L extends Path<T>, A = unknown>(
  * Returns true if the path value is in the provided array
  *
  * @example
- * inArray("user.role", ["admin", "moderator"])
- * inArray("post.status", ["published", "draft"])
+ * inArray(subject.user.role, ["admin", "moderator"])
+ * inArray(subject.post.status, ["published", "draft"])
  */
-export function inArray<T, L extends Path<T>, A = unknown>(
-  path: L,
-  values: PathValue<T, L>[],
+export function inArray<T, A = unknown>(
+  path: SubjectPath | ScopedSubjectPath,
+  values: (string | number | boolean | null)[],
 ): Expr<T, A> {
   return { kind: "inArray", path, values };
 }
@@ -106,9 +106,9 @@ export function inArray<T, L extends Path<T>, A = unknown>(
  * Check if a path value is null
  *
  * @example
- * isNull("post.deletedAt")
+ * isNull(subject.post.deletedAt)
  */
-export function isNull<T, L extends Path<T>, A = unknown>(path: L): Expr<T, A> {
+export function isNull<T, A = unknown>(path: SubjectPath | ScopedSubjectPath): Expr<T, A> {
   return { kind: "isNull", path };
 }
 
@@ -116,9 +116,9 @@ export function isNull<T, L extends Path<T>, A = unknown>(path: L): Expr<T, A> {
  * Check if a path value is not null
  *
  * @example
- * isNotNull("post.publishedAt")
+ * isNotNull(subject.post.publishedAt)
  */
-export function isNotNull<T, L extends Path<T>, A = unknown>(path: L): Expr<T, A> {
+export function isNotNull<T, A = unknown>(path: SubjectPath | ScopedSubjectPath): Expr<T, A> {
   return { kind: "isNotNull", path };
 }
 
@@ -126,10 +126,13 @@ export function isNotNull<T, L extends Path<T>, A = unknown>(path: L): Expr<T, A
  * Check if a string path starts with a prefix
  *
  * @example
- * startsWith("post.title", "[DRAFT]")
- * startsWith("file.name", "temp_")
+ * startsWith(subject.post.title, "[DRAFT]")
+ * startsWith(subject.file.name, "temp_")
  */
-export function startsWith<T, L extends Path<T>, A = unknown>(path: L, prefix: string): Expr<T, A> {
+export function startsWith<T, A = unknown>(
+  path: SubjectPath | ScopedSubjectPath,
+  prefix: string,
+): Expr<T, A> {
   return { kind: "startsWith", path, prefix };
 }
 
@@ -137,10 +140,13 @@ export function startsWith<T, L extends Path<T>, A = unknown>(path: L, prefix: s
  * Check if a string path ends with a suffix
  *
  * @example
- * endsWith("file.name", ".pdf")
- * endsWith("post.slug", "-draft")
+ * endsWith(subject.file.name, ".pdf")
+ * endsWith(subject.post.slug, "-draft")
  */
-export function endsWith<T, L extends Path<T>, A = unknown>(path: L, suffix: string): Expr<T, A> {
+export function endsWith<T, A = unknown>(
+  path: SubjectPath | ScopedSubjectPath,
+  suffix: string,
+): Expr<T, A> {
   return { kind: "endsWith", path, suffix };
 }
 
@@ -148,10 +154,13 @@ export function endsWith<T, L extends Path<T>, A = unknown>(path: L, suffix: str
  * Check if a string contains a substring or array contains a value
  *
  * @example
- * contains("post.title", "important")
- * contains("post.tags", "featured")
+ * contains(subject.post.title, "important")
+ * contains(subject.post.tags, "featured")
  */
-export function contains<T, L extends Path<T>, A = unknown>(path: L, value: string): Expr<T, A> {
+export function contains<T, A = unknown>(
+  path: SubjectPath | ScopedSubjectPath,
+  value: string,
+): Expr<T, A> {
   return { kind: "contains", path, value };
 }
 
@@ -159,13 +168,13 @@ export function contains<T, L extends Path<T>, A = unknown>(path: L, value: stri
  * Check if a value is between min and max (inclusive)
  *
  * @example
- * between("post.createdAt", "2024-01-01", "2024-12-31")
- * between("user.age", 18, 65)
+ * between(subject.post.createdAt, "2024-01-01", "2024-12-31")
+ * between(subject.user.age, 18, 65)
  */
-export function between<T, L extends Path<T>, A = unknown>(
-  path: L,
-  min: Path<T> | PathValue<T, L>,
-  max: Path<T> | PathValue<T, L>,
+export function between<T, A = unknown>(
+  path: SubjectPath | ScopedSubjectPath,
+  min: SubjectPath | ScopedSubjectPath | ActorValue | string | number,
+  max: SubjectPath | ScopedSubjectPath | ActorValue | string | number,
 ): Expr<T, A> {
   return { kind: "between", path, min, max };
 }
@@ -174,11 +183,11 @@ export function between<T, L extends Path<T>, A = unknown>(
  * Check if a string matches a regular expression pattern
  *
  * @example
- * matches("user.email", /@company\.com$/)
- * matches("post.slug", /^[a-z0-9-]+$/)
+ * matches(subject.user.email, /@company\.com$/)
+ * matches(subject.post.slug, /^[a-z0-9-]+$/)
  */
-export function matches<T, L extends Path<T>, A = unknown>(
-  path: L,
+export function matches<T, A = unknown>(
+  path: SubjectPath | ScopedSubjectPath,
   pattern: RegExp | string,
   flags?: string,
 ): Expr<T, A> {
@@ -189,54 +198,63 @@ export function matches<T, L extends Path<T>, A = unknown>(
 
 /**
  * Check if a related record exists in another table
- * Compile-only: Cannot be evaluated on frontend
  *
  * @example
- * exists("task_assignments", { userId: "user.id", taskId: "task.id" })
+ * exists(subject.comments, (c) =>
+ *   eq(c.postId, subject.post.id)
+ * )
  */
-export function exists<T, A = unknown>(
-  table: string,
-  conditions: Record<string, string | number | boolean | null>,
+export function exists<TTable, T, A = unknown>(
+  table: TableRef<TTable>,
+  predicate: (scoped: TTable) => Expr<T, A>,
 ): Expr<T, A> {
-  return { kind: "exists", table, conditions };
+  // Create a scoped proxy for the predicate function
+  // This will be handled by the caller (evaluate/compile)
+  return { kind: "exists", table, predicate: predicate as any };
 }
 
 /**
  * Count related records in another table
- * Compile-only: Cannot be evaluated on frontend
  *
  * @example
- * count("comments", { postId: "post.id" })
+ * count(subject.comments, (c) =>
+ *   eq(c.postId, subject.post.id)
+ * )
  */
-export function count<T, A = unknown>(
-  table: string,
-  conditions: Record<string, string | number | boolean | null>,
+export function count<TTable, T, A = unknown>(
+  table: TableRef<TTable>,
+  predicate: (scoped: TTable) => Expr<T, A>,
 ): Expr<T, A> {
-  return { kind: "count", table, conditions };
+  return { kind: "count", table, predicate: predicate as any };
 }
 
 /**
  * Check if there are multiple related records in another table (>= minCount, default 2)
- * Compile-only: Cannot be evaluated on frontend
  *
  * @example
- * hasMany("permissions", { userId: "user.id", action: "moderate" }, 3)
+ * hasMany(subject.permissions, (p) =>
+ *   and(
+ *     eq(p.userId, actor.user.id),
+ *     eq(p.action, "moderate")
+ *   ),
+ *   3
+ * )
  */
-export function hasMany<T, A = unknown>(
-  table: string,
-  conditions: Record<string, string | number | boolean | null>,
+export function hasMany<TTable, T, A = unknown>(
+  table: TableRef<TTable>,
+  predicate: (scoped: TTable) => Expr<T, A>,
   minCount?: number,
 ): Expr<T, A> {
-  return { kind: "hasMany", table, conditions, minCount };
+  return { kind: "hasMany", table, predicate: predicate as any, minCount };
 }
 
 /**
  * Automatic tenant isolation - ensure subject belongs to actor's tenant
  *
  * @example
- * tenantScoped("post.organizationId")
+ * tenantScoped(subject.post.organizationId)
  */
-export function tenantScoped<T, L extends Path<T>, A = unknown>(path: L): Expr<T, A> {
+export function tenantScoped<T, A = unknown>(path: SubjectPath | ScopedSubjectPath): Expr<T, A> {
   return { kind: "tenantScoped", path };
 }
 
@@ -244,13 +262,13 @@ export function tenantScoped<T, L extends Path<T>, A = unknown>(path: L): Expr<T
  * Check if subject belongs to same tenant as actor
  *
  * @example
- * belongsToTenant("user.organizationId", "post.organizationId")
+ * belongsToTenant(actor.user.organizationId, subject.post.organizationId)
  */
-export function belongsToTenant<T, L extends Path<T>, A = unknown>(
-  actorPath: string,
-  subjectPath: L,
+export function belongsToTenant<T, A = unknown>(
+  actorValue: ActorValue,
+  subjectPath: SubjectPath | ScopedSubjectPath,
 ): Expr<T, A> {
-  return { kind: "belongsToTenant", actorPath, subjectPath };
+  return { kind: "belongsToTenant", actorValue, subjectPath };
 }
 
 /**
@@ -258,8 +276,8 @@ export function belongsToTenant<T, L extends Path<T>, A = unknown>(
  * Returns the opposite of the given expression
  *
  * @example
- * not(eq("post.archived", true))
- * not(and(eq("post.deleted", true), isNull("post.publishedAt")))
+ * not(eq(subject.post.archived, true))
+ * not(and(eq(subject.post.deleted, true), isNull(subject.post.publishedAt)))
  */
 export function not<T, A = unknown>(expr: Expr<T, A>): Expr<T, A> {
   return { kind: "not", expr };
@@ -270,7 +288,7 @@ export function not<T, A = unknown>(expr: Expr<T, A>): Expr<T, A> {
  * All rules must be true
  *
  * @example
- * and(eq("post.published", true), eq("user.role", "admin"))
+ * and(eq(subject.post.published, true), eq(subject.user.role, "admin"))
  */
 export function and<T, A = unknown>(...rules: Expr<T, A>[]): Expr<T, A> {
   return { kind: "and", rules };
@@ -281,7 +299,7 @@ export function and<T, A = unknown>(...rules: Expr<T, A>[]): Expr<T, A> {
  * At least one rule must be true
  *
  * @example
- * or(eq("user.role", "admin"), eq("post.published", true))
+ * or(eq(subject.user.role, "admin"), eq(subject.post.published, true))
  */
 export function or<T, A = unknown>(...rules: Expr<T, A>[]): Expr<T, A> {
   return { kind: "or", rules };
