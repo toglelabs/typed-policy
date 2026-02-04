@@ -103,6 +103,17 @@ function createProxyTarget(ctx: {
           path: [...ctx.path, propStr],
         });
       },
+      has(_target, prop) {
+        if (
+          prop === "__isProxy" ||
+          prop === "__kind" ||
+          prop === "__table" ||
+          prop === "__column"
+        ) {
+          return true;
+        }
+        return false;
+      },
     },
   );
 }
@@ -168,6 +179,47 @@ export function isProxy(value: unknown): boolean {
 }
 
 /**
+ * Check if value is a concrete SubjectPath (not a proxy).
+ */
+function isConcreteSubjectPath(value: unknown): value is SubjectPath {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "__kind" in value &&
+    (value as any).__kind === "subject-path" &&
+    "table" in value &&
+    "column" in value
+  );
+}
+
+/**
+ * Check if value is a concrete ScopedSubjectPath (not a proxy).
+ */
+function isConcreteScopedSubjectPath(value: unknown): value is ScopedSubjectPath {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "__kind" in value &&
+    (value as any).__kind === "scoped-subject-path" &&
+    "table" in value &&
+    "column" in value
+  );
+}
+
+/**
+ * Check if value is a concrete TableRef (not a proxy).
+ */
+function isConcreteTableRef(value: unknown): value is TableRef {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    "__kind" in value &&
+    (value as any).__kind === "table-ref" &&
+    "name" in value
+  );
+}
+
+/**
  * Normalizes a proxy to a concrete AST node.
  * Handles SubjectPath, ScopedSubjectPath, and TableRef.
  *
@@ -175,14 +227,16 @@ export function isProxy(value: unknown): boolean {
  * @returns Concrete AST node (SubjectPath, ScopedSubjectPath, or TableRef)
  */
 export function normalizePath(path: any): SubjectPath | ScopedSubjectPath | TableRef {
-  if (isSubjectPath(path) || isScopedSubjectPath(path)) {
+  // If it's already a concrete path (not a proxy), return as-is
+  if (
+    isConcreteSubjectPath(path) ||
+    isConcreteScopedSubjectPath(path) ||
+    isConcreteTableRef(path)
+  ) {
     return path;
   }
 
-  if (isTableRef(path)) {
-    return path;
-  }
-
+  // If it's a proxy, extract values and create a concrete object
   if (isProxy(path)) {
     const kind = path.__kind;
     const table = path.__table;
@@ -193,7 +247,7 @@ export function normalizePath(path: any): SubjectPath | ScopedSubjectPath | Tabl
         __kind: "subject-path",
         table,
         column,
-      };
+      } as SubjectPath;
     }
 
     if (kind === "scoped-subject-path") {
@@ -201,14 +255,14 @@ export function normalizePath(path: any): SubjectPath | ScopedSubjectPath | Tabl
         __kind: "scoped-subject-path",
         table,
         column,
-      };
+      } as ScopedSubjectPath;
     }
 
     if (kind === "table-ref") {
       return {
         __kind: "table-ref",
         name: table,
-      };
+      } as TableRef;
     }
   }
 

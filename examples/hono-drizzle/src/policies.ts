@@ -1,4 +1,13 @@
-import { and, eq, or, policy } from "@typed-policy/core";
+import {
+  and,
+  createActorProxy,
+  createSubjectProxy,
+  eq,
+  or,
+  policy,
+  type ScopedSubjectPath,
+  type SubjectPath,
+} from "@typed-policy/core";
 
 // Separate types for Actor and Subject
 export type Actor = {
@@ -18,6 +27,13 @@ export type Subject = {
 
 export type Resources = Subject;
 
+// Create subject proxy for type-safe path access
+const subject = createSubjectProxy<Subject>();
+
+// Helper to type paths correctly
+const getPath = <T>(path: T): T & (SubjectPath | ScopedSubjectPath) =>
+  path as T & (SubjectPath | ScopedSubjectPath);
+
 export const postPolicy = policy<Actor, Subject>({
   subject: "Post",
   actions: {
@@ -28,7 +44,7 @@ export const postPolicy = policy<Actor, Subject>({
         return true;
       }
       // Regular users see only published posts
-      return eq("post.published", true);
+      return eq(getPath(subject.post.published), true);
     },
 
     read: ({ actor }) => {
@@ -36,7 +52,11 @@ export const postPolicy = policy<Actor, Subject>({
         return true;
       }
       // Return declarative expression for SQL compilation
-      return or(eq("post.published", true), eq("post.ownerId", actor.user.id));
+      const actorProxy = createActorProxy(actor);
+      return or(
+        eq(getPath(subject.post.published), true),
+        eq(getPath(subject.post.ownerId), actorProxy.user.id),
+      );
     },
 
     create: true, // Boolean literal - anyone can create
@@ -45,14 +65,17 @@ export const postPolicy = policy<Actor, Subject>({
       if (actor.user.role === "admin") {
         return true;
       }
-      return and(eq("post.ownerId", actor.user.id), eq("post.published", false));
+      return and(
+        eq(getPath(subject.post.ownerId), createActorProxy(actor).user.id),
+        eq(getPath(subject.post.published), false),
+      );
     },
 
     delete: ({ actor }) => {
       if (actor.user.role === "admin") {
         return true;
       }
-      return eq("post.ownerId", actor.user.id);
+      return eq(getPath(subject.post.ownerId), createActorProxy(actor).user.id);
     },
 
     // Example of false literal (deny all)

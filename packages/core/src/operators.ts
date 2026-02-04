@@ -1,5 +1,28 @@
 import type { Expr } from "./ast.js";
+import { normalizePath } from "./proxies.js";
 import type { ActorValue, ScopedSubjectPath, SubjectPath, TableRef } from "./symbolic.js";
+
+/**
+ * Normalizes left side of comparison operators
+ */
+function normalizeLeft(left: SubjectPath | ScopedSubjectPath): SubjectPath | ScopedSubjectPath {
+  return normalizePath(left) as SubjectPath | ScopedSubjectPath;
+}
+
+/**
+ * Normalizes right side of comparison operators
+ */
+function normalizeRight(
+  right: SubjectPath | ScopedSubjectPath | ActorValue | string | number | boolean | null,
+): SubjectPath | ScopedSubjectPath | ActorValue | string | number | boolean | null {
+  if (typeof right === "object" && right !== null && "__kind" in right) {
+    const normalized = normalizePath(right);
+    if (normalized && "__kind" in normalized) {
+      return normalized as SubjectPath | ScopedSubjectPath;
+    }
+  }
+  return right;
+}
 
 /**
  * Equality comparison operator
@@ -13,7 +36,7 @@ export function eq<T, A = unknown>(
   left: SubjectPath | ScopedSubjectPath,
   right: SubjectPath | ScopedSubjectPath | ActorValue | string | number | boolean | null,
 ): Expr<T, A> {
-  return { kind: "eq", left, right };
+  return { kind: "eq", left: normalizeLeft(left), right: normalizeRight(right) };
 }
 
 /**
@@ -28,7 +51,7 @@ export function neq<T, A = unknown>(
   left: SubjectPath | ScopedSubjectPath,
   right: SubjectPath | ScopedSubjectPath | ActorValue | string | number | boolean | null,
 ): Expr<T, A> {
-  return { kind: "neq", left, right };
+  return { kind: "neq", left: normalizeLeft(left), right: normalizeRight(right) };
 }
 
 /**
@@ -42,7 +65,7 @@ export function gt<T, A = unknown>(
   left: SubjectPath | ScopedSubjectPath,
   right: SubjectPath | ScopedSubjectPath | ActorValue | string | number,
 ): Expr<T, A> {
-  return { kind: "gt", left, right };
+  return { kind: "gt", left: normalizeLeft(left), right: normalizeRight(right) };
 }
 
 /**
@@ -56,7 +79,7 @@ export function lt<T, A = unknown>(
   left: SubjectPath | ScopedSubjectPath,
   right: SubjectPath | ScopedSubjectPath | ActorValue | string | number,
 ): Expr<T, A> {
-  return { kind: "lt", left, right };
+  return { kind: "lt", left: normalizeLeft(left), right: normalizeRight(right) };
 }
 
 /**
@@ -70,7 +93,7 @@ export function gte<T, A = unknown>(
   left: SubjectPath | ScopedSubjectPath,
   right: SubjectPath | ScopedSubjectPath | ActorValue | string | number,
 ): Expr<T, A> {
-  return { kind: "gte", left, right };
+  return { kind: "gte", left: normalizeLeft(left), right: normalizeRight(right) };
 }
 
 /**
@@ -84,7 +107,7 @@ export function lte<T, A = unknown>(
   left: SubjectPath | ScopedSubjectPath,
   right: SubjectPath | ScopedSubjectPath | ActorValue | string | number,
 ): Expr<T, A> {
-  return { kind: "lte", left, right };
+  return { kind: "lte", left: normalizeLeft(left), right: normalizeRight(right) };
 }
 
 /**
@@ -99,7 +122,7 @@ export function inArray<T, A = unknown>(
   path: SubjectPath | ScopedSubjectPath,
   values: (string | number | boolean | null)[],
 ): Expr<T, A> {
-  return { kind: "inArray", path, values };
+  return { kind: "inArray", path: normalizeLeft(path), values };
 }
 
 /**
@@ -109,7 +132,7 @@ export function inArray<T, A = unknown>(
  * isNull(subject.post.deletedAt)
  */
 export function isNull<T, A = unknown>(path: SubjectPath | ScopedSubjectPath): Expr<T, A> {
-  return { kind: "isNull", path };
+  return { kind: "isNull", path: normalizeLeft(path) };
 }
 
 /**
@@ -119,7 +142,7 @@ export function isNull<T, A = unknown>(path: SubjectPath | ScopedSubjectPath): E
  * isNotNull(subject.post.publishedAt)
  */
 export function isNotNull<T, A = unknown>(path: SubjectPath | ScopedSubjectPath): Expr<T, A> {
-  return { kind: "isNotNull", path };
+  return { kind: "isNotNull", path: normalizeLeft(path) };
 }
 
 /**
@@ -133,7 +156,7 @@ export function startsWith<T, A = unknown>(
   path: SubjectPath | ScopedSubjectPath,
   prefix: string,
 ): Expr<T, A> {
-  return { kind: "startsWith", path, prefix };
+  return { kind: "startsWith", path: normalizeLeft(path), prefix };
 }
 
 /**
@@ -147,7 +170,7 @@ export function endsWith<T, A = unknown>(
   path: SubjectPath | ScopedSubjectPath,
   suffix: string,
 ): Expr<T, A> {
-  return { kind: "endsWith", path, suffix };
+  return { kind: "endsWith", path: normalizeLeft(path), suffix };
 }
 
 /**
@@ -161,7 +184,7 @@ export function contains<T, A = unknown>(
   path: SubjectPath | ScopedSubjectPath,
   value: string,
 ): Expr<T, A> {
-  return { kind: "contains", path, value };
+  return { kind: "contains", path: normalizeLeft(path), value };
 }
 
 /**
@@ -176,7 +199,12 @@ export function between<T, A = unknown>(
   min: SubjectPath | ScopedSubjectPath | ActorValue | string | number,
   max: SubjectPath | ScopedSubjectPath | ActorValue | string | number,
 ): Expr<T, A> {
-  return { kind: "between", path, min, max };
+  return {
+    kind: "between",
+    path: normalizeLeft(path),
+    min: normalizeRight(min),
+    max: normalizeRight(max),
+  };
 }
 
 /**
@@ -193,7 +221,12 @@ export function matches<T, A = unknown>(
 ): Expr<T, A> {
   const patternStr = typeof pattern === "string" ? pattern : pattern.source;
   const patternFlags = typeof pattern === "string" ? flags : pattern.flags || flags;
-  return { kind: "matches", path, pattern: patternStr, flags: patternFlags };
+  return {
+    kind: "matches",
+    path: normalizeLeft(path),
+    pattern: patternStr,
+    flags: patternFlags,
+  };
 }
 
 /**
@@ -208,9 +241,9 @@ export function exists<TTable, T, A = unknown>(
   table: TableRef<TTable>,
   predicate: (scoped: TTable) => Expr<T, A>,
 ): Expr<T, A> {
-  // Create a scoped proxy for the predicate function
-  // This will be handled by the caller (evaluate/compile)
-  return { kind: "exists", table, predicate: predicate as any };
+  // Normalize the table ref
+  const normalizedTable = normalizePath(table) as TableRef<TTable>;
+  return { kind: "exists", table: normalizedTable, predicate: predicate as any };
 }
 
 /**
@@ -225,7 +258,8 @@ export function count<TTable, T, A = unknown>(
   table: TableRef<TTable>,
   predicate: (scoped: TTable) => Expr<T, A>,
 ): Expr<T, A> {
-  return { kind: "count", table, predicate: predicate as any };
+  const normalizedTable = normalizePath(table) as TableRef<TTable>;
+  return { kind: "count", table: normalizedTable, predicate: predicate as any };
 }
 
 /**
@@ -245,7 +279,8 @@ export function hasMany<TTable, T, A = unknown>(
   predicate: (scoped: TTable) => Expr<T, A>,
   minCount?: number,
 ): Expr<T, A> {
-  return { kind: "hasMany", table, predicate: predicate as any, minCount };
+  const normalizedTable = normalizePath(table) as TableRef<TTable>;
+  return { kind: "hasMany", table: normalizedTable, predicate: predicate as any, minCount };
 }
 
 /**
@@ -255,7 +290,7 @@ export function hasMany<TTable, T, A = unknown>(
  * tenantScoped(subject.post.organizationId)
  */
 export function tenantScoped<T, A = unknown>(path: SubjectPath | ScopedSubjectPath): Expr<T, A> {
-  return { kind: "tenantScoped", path };
+  return { kind: "tenantScoped", path: normalizeLeft(path) };
 }
 
 /**
@@ -268,7 +303,7 @@ export function belongsToTenant<T, A = unknown>(
   actorValue: ActorValue,
   subjectPath: SubjectPath | ScopedSubjectPath,
 ): Expr<T, A> {
-  return { kind: "belongsToTenant", actorValue, subjectPath };
+  return { kind: "belongsToTenant", actorValue, subjectPath: normalizeLeft(subjectPath) };
 }
 
 /**
